@@ -55,19 +55,23 @@ let SegmentConfig =
           | BatterySegment : { name : Text, battery : Text }
           | ThermalSegment : { name : Text, zone : Text }
           | WifiSegment : { name : Text, interface : Text }
-          | RowSegment :
-              { name : Text
-              , segments : List SegmentConfig.Type
-              , style : Optional StyleConfig.Type
-              , display : Optional DisplayConfig.Type
-              }
+
           >
       , default = {=}
       }
 
+let SegmentNode =
+      { Type =
+          { segment : SegmentConfig.Type
+          , style : Optional StyleConfig.Type
+          , display : Optional DisplayConfig.Type
+          }
+      , default = { style = None StyleConfig.Type, display = None DisplayConfig.Type }
+      }
+
 let BarConfig =
       { Type =
-          { segments : List SegmentConfig.Type
+          { segments : List SegmentNode.Type
           , separator : Optional Text
           , theme : Optional Text
           }
@@ -81,5 +85,6 @@ in  { Colour
     , StyleConfig
     , DisplayConfig
     , SegmentConfig
+    , SegmentNode
     , BarConfig
     }

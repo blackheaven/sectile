@@ -21,12 +21,19 @@ import qualified Text.Colour.Code as Colour
 -- | Convert a full bar configuration into a list of sectile segments.
 convertBar :: S.BarConfig -> [Sectile.Segment IO]
 convertBar cfg =
-  let segs = convertSegment <$> cfg.segments
+  let segs = convertNode <$> cfg.segments
    in case cfg.separator of
         Nothing -> segs
         Just sep ->
           let sepSeg = Sectile.string sep
            in intercalateSeg sepSeg segs
+
+-- | Convert a segment node configuration to a styled library segment.
+convertNode :: S.SegmentNode -> Sectile.Segment IO
+convertNode (S.SegmentNode {..}) =
+  let base = convertSegment segment
+      styled = maybe id applyStyle style base
+   in maybe id applyDisplay display styled
 
 -- | Convert a single segment configuration to a library segment.
 convertSegment :: S.SegmentConfig -> Sectile.Segment IO
@@ -65,11 +72,7 @@ convertSegment = \case
     System.thermal (mkName name) (T.unpack zone)
   S.WifiSegment {..} ->
     System.wifi (mkName name) (T.unpack interface)
-  S.RowSegment {..} ->
-    let children = convertSegment <$> segments
-        base = Sectile.row mapConcurrently (mkName name) children
-        styled = maybe id applyStyle style base
-     in maybe id applyDisplay display styled
+
 
 -- | Apply a style configuration to a segment.
 applyStyle :: S.StyleConfig -> Sectile.Segment IO -> Sectile.Segment IO

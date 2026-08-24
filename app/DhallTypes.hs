@@ -8,6 +8,7 @@
 module DhallTypes
   ( -- * Segment configuration
     SegmentConfig (..),
+    SegmentNode (..),
 
     -- * Style configuration
     Colour (..),
@@ -90,19 +91,24 @@ data SegmentConfig
   | BatterySegment {name :: Text, battery :: Text}
   | ThermalSegment {name :: Text, zone :: Text}
   | WifiSegment {name :: Text, interface :: Text}
-  | RowSegment
-      { name :: Text,
-        segments :: [SegmentConfig],
-        style :: Maybe StyleConfig,
-        display :: Maybe DisplayConfig
-      }
+
   deriving stock (Eq, Show, Generic)
 
 deriving anyclass instance FromDhall SegmentConfig
 
+-- | A segment with its styling and display configuration.
+data SegmentNode = SegmentNode
+  { segment :: SegmentConfig,
+    style :: Maybe StyleConfig,
+    display :: Maybe DisplayConfig
+  }
+  deriving stock (Eq, Show, Generic)
+
+deriving anyclass instance FromDhall SegmentNode
+
 -- | Top-level bar configuration.
 data BarConfig = BarConfig
-  { segments :: [SegmentConfig],
+  { segments :: [SegmentNode],
     separator :: Maybe Text,
     theme :: Maybe ThemeName
   }
