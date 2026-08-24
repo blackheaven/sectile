@@ -27,6 +27,7 @@ where
 
 import qualified Control.Exception
 import qualified Data.ByteString.Builder as B
+import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -34,8 +35,6 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import qualified Data.Time as Time
 import qualified System.Process as Process
-import qualified Text.Colour.Chunk as Colour
-import qualified Text.Colour.Chunk.Parsing as Colour
 
 -- | Create a pure text segment.
 --

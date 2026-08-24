@@ -10,13 +10,12 @@ import qualified Data.Sectile.Display as Display
 import qualified Data.Sectile.Style as Style
 import qualified Data.Sectile.System.Linux as System
 import qualified Data.Sectile.Themes as Themes
+import qualified Data.Sectile.Tmux as Colour
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Word as Word
 import qualified DhallTypes as S
 import Numeric.Natural (Natural)
-import qualified Text.Colour.Chunk as Colour
-import qualified Text.Colour.Code as Colour
 
 -- | Convert a full bar configuration into a list of sectile segments.
 convertBar :: S.BarConfig -> [Sectile.Segment IO]
@@ -72,7 +71,6 @@ convertSegment = \case
     System.thermal (mkName name) (T.unpack zone)
   S.WifiSegment {..} ->
     System.wifi (mkName name) (T.unpack interface)
-
 
 -- | Apply a style configuration to a segment.
 applyStyle :: S.StyleConfig -> Sectile.Segment IO -> Sectile.Segment IO

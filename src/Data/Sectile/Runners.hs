@@ -16,9 +16,8 @@ module Data.Sectile.Runners
 where
 
 import qualified Data.ByteString.Builder as B
+import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
-import qualified Text.Colour.Capabilities as Colour
-import qualified Text.Colour.Chunk as Colour
 
 -- | Render a segment to a 'B.Builder' using the given terminal capabilities.
 --
@@ -28,7 +27,7 @@ import qualified Text.Colour.Chunk as Colour
 --
 -- > import Data.Sectile
 -- > import qualified Data.ByteString.Builder as B
--- > import qualified Text.Colour.Capabilities as Colour
+-- > import qualified Data.Sectile.Tmux as Colour
 -- >
 -- > main :: IO ()
 -- > main = do
@@ -46,7 +45,7 @@ renderSegment t s = Colour.renderChunksUtf8BSBuilder t . (.rendered) . ($ Colour
 --
 -- > import Data.Sectile
 -- > import qualified Data.ByteString.Builder as B
--- > import qualified Text.Colour.Capabilities as Colour
+-- > import qualified Data.Sectile.Tmux as Colour
 -- >
 -- > debugSegment :: IO ()
 -- > debugSegment = do

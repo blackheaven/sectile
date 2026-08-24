@@ -23,8 +23,8 @@ module Data.Sectile.Types
 where
 
 import qualified Data.ByteString.Builder as B
+import qualified Data.Sectile.Tmux as Colour
 import Data.String (IsString)
-import qualified Text.Colour.Chunk as Colour
 
 -- | A composable segment of a status line.
 --
@@ -49,7 +49,7 @@ newtype Segment m = Segment
 --
 -- Example:
 --
--- > import qualified Text.Colour.Chunk as Colour
+-- > import qualified Data.Sectile.Tmux as Colour
 -- >
 -- > -- A Formatted value carries rendered output and debug info
 -- > inspectRendered :: Formatted -> [Colour.Chunk]

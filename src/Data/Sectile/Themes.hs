@@ -39,8 +39,8 @@ module Data.Sectile.Themes
   )
 where
 
+import qualified Data.Sectile.Tmux as Colour
 import Data.Word (Word8)
-import qualified Text.Colour.Chunk as Colour
 
 -- | A complete colour palette for theming status line segments.
 --

@@ -23,7 +23,7 @@
 -- > import Data.Sectile
 -- > import Data.Sectile.System.Linux
 -- > import qualified Data.ByteString.Builder as B
--- > import qualified Text.Colour.Capabilities as Colour
+-- > import qualified Data.Sectile.Tmux as Colour
 -- >
 -- > main :: IO ()
 -- > main = do

@@ -91,7 +91,6 @@ data SegmentConfig
   | BatterySegment {name :: Text, battery :: Text}
   | ThermalSegment {name :: Text, zone :: Text}
   | WifiSegment {name :: Text, interface :: Text}
-
   deriving stock (Eq, Show, Generic)
 
 deriving anyclass instance FromDhall SegmentConfig

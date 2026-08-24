@@ -35,11 +35,11 @@ where
 import qualified Control.Lens as Lens
 import qualified Control.Lens.Regex.Text as Regex
 import qualified Data.Char as Char
+import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
 import qualified Data.Text as T
 import qualified Data.Text.Read as T
 import qualified Data.Time.Clock.POSIX as Time
-import qualified Text.Colour.Chunk as Colour
 import qualified Text.Regex.PCRE.Light as PCRE
 
 -- | Keep only the first @n@ characters of a segment's rendered text.

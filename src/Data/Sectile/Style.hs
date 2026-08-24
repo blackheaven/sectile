@@ -37,12 +37,11 @@ module Data.Sectile.Style
   )
 where
 
+import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
 import qualified Data.Text as T
 import Data.Word (Word8)
 import qualified Optics.Core as Optics
-import qualified Text.Colour as Colour
-import qualified Text.Colour.Code as Colour
 
 -- | Wrap a list of segments between a start and end segment.
 --
@@ -64,7 +63,7 @@ between start end ss = start : (ss <> [end])
 -- Example:
 --
 -- > import Data.Sectile
--- > import qualified Text.Colour.Chunk as Colour
+-- > import qualified Data.Sectile.Tmux as Colour
 -- >
 -- > boldSegment :: Segment IO -> Segment IO
 -- > boldSegment = changeStyle (\s -> s {Colour.chunkStyleConsoleIntensity = Just Colour.BoldIntensity})
@@ -79,7 +78,7 @@ changeStyle c (Segment s) = Segment $ (. c) <$> s
 -- Example:
 --
 -- > import Data.Sectile
--- > import qualified Text.Colour.Chunk as Colour
+-- > import qualified Data.Sectile.Tmux as Colour
 -- >
 -- > makeItalic :: Segment IO -> Segment IO
 -- > makeItalic = forceStyle (\s -> s {Colour.chunkStyleItalic = Just True})
@@ -127,7 +126,7 @@ swapForegroundBackgroundStyle s =
 --
 -- > import Data.Sectile
 -- > import Data.Sectile.Style
--- > import qualified Text.Colour.Chunk as Colour
+-- > import qualified Data.Sectile.Tmux as Colour
 -- > import qualified Data.Text as T
 -- >
 -- > alert :: Segment IO -> Segment IO

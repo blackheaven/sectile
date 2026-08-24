@@ -14,7 +14,7 @@ ANSI-aware terminal output that can be combined, transformed, and debugged.
 ### Features
 
 - Composable segments with style propagation
-- ANSI escape sequence parsing and rendering
+- Tmux status bar formatting sequence rendering
 - Shell command execution with error handling
 - Linux system monitoring (uptime, memory, CPU, disk, network)
 - Display transformations (truncation, padding, fixed-size, regex rewriting)
@@ -42,7 +42,7 @@ ANSI-aware terminal output that can be combined, transformed, and debugged.
 ```haskell
 import Data.Sectile
 import qualified Data.ByteString.Builder as B
-import qualified Text.Colour.Capabilities as Colour
+import qualified Data.Sectile.Tmux as Colour
 import System.IO (stdout)
 
 main :: IO ()
@@ -98,7 +98,7 @@ shortPath = takeEnd 30 (sh "pwd" "pwd" Nothing)
 import Data.Sectile
 import Data.Sectile.Style
 import qualified Optics.Core as Optics
-import qualified Text.Colour.Chunk as Colour
+import qualified Data.Sectile.Tmux as Colour
 
 -- Swap foreground/background
 inverted :: Segment IO -> Segment IO
@@ -140,7 +140,7 @@ themedBar =
 ```haskell
 import Data.Sectile
 import qualified Data.ByteString.Builder as B
-import qualified Text.Colour.Capabilities as Colour
+import qualified Data.Sectile.Tmux as Colour
 import System.IO (stdout)
 
 main :: IO ()

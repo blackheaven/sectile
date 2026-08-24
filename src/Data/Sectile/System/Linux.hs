@@ -29,6 +29,7 @@ where
 import qualified Control.Exception as Exception
 import qualified Data.ByteString.Builder as B
 import Data.Maybe (mapMaybe)
+import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -36,8 +37,6 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import qualified Data.Text.Read as T
 import Numeric (showFFloat)
-import qualified Text.Colour.Chunk as Colour
-import qualified Text.Colour.Chunk.Parsing as Colour
 
 -- | Display system uptime by reading @\/proc\/uptime@.
 --

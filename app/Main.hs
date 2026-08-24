@@ -5,13 +5,13 @@ import Convert (convertBar)
 import qualified Data.ByteString.Builder as B
 import qualified Data.Either.Validation as V
 import Data.Sectile (explainSegment, renderSegment, row)
+import qualified Data.Sectile.Tmux as Colour
 import qualified Data.Text.IO as Text.IO
 import qualified Dhall
 import qualified Dhall.Core
 import DhallTypes (BarConfig)
 import Options.Applicative as Options
 import System.IO (stdout)
-import qualified Text.Colour.Capabilities as Colour
 
 main :: IO ()
 main = do

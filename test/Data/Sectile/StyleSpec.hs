@@ -3,13 +3,12 @@ module Data.Sectile.StyleSpec (spec) where
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as BSL
 import Data.Sectile
+import Data.Sectile.Tmux (Brightness (..), ConsoleIntensity (..), TerminalColour (..))
+import qualified Data.Sectile.Tmux as Colour
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Optics.Core as Optics
 import Test.Hspec
-import qualified Text.Colour.Capabilities as Colour
-import qualified Text.Colour.Chunk as Colour
-import Text.Colour.Code (ColourIntensity (..), TerminalColour (..))
 
 spec :: Spec
 spec = do

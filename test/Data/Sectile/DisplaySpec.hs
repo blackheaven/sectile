@@ -3,10 +3,10 @@ module Data.Sectile.DisplaySpec (spec) where
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as BSL
 import Data.Sectile
+import qualified Data.Sectile.Tmux as Colour
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Test.Hspec
-import qualified Text.Colour.Capabilities as Colour
 
 spec :: Spec
 spec = do
