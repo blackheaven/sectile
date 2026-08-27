@@ -1,6 +1,4 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Data.Sectile.Tmux
   ( Chunk (..),
@@ -20,7 +18,6 @@ module Data.Sectile.Tmux
 where
 
 import qualified Data.ByteString.Builder as B
-import Data.List (intersperse)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T

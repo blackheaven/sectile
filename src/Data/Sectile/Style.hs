@@ -20,7 +20,8 @@ module Data.Sectile.Style
 
     -- * Combinators
     warnIf,
-    gradient,
+    gradientFg,
+    gradientBg,
 
     -- * Style optics
     styleItalic,
@@ -147,11 +148,43 @@ warnIf p warnStyle (Segment s) = Segment $ fmap transform s
             else formatted
 
 -- | Apply a background color gradient based on a parsed value.
---
--- Given two RGB colors (from, to) and a parser that returns a value between 0.0 and 1.0,
--- interpolates the background color.
-gradient :: (Functor m) => (Word8, Word8, Word8) -> (Word8, Word8, Word8) -> (T.Text -> Maybe Double) -> Segment m -> Segment m
-gradient (r1, g1, b1) (r2, g2, b2) parsePct (Segment s) = Segment $ fmap transform s
+gradientBg ::
+  (Functor m) =>
+  (Word8, Word8, Word8) ->
+  (Word8, Word8, Word8) ->
+  (T.Text -> Maybe Double) ->
+  Segment m ->
+  Segment m
+gradientBg =
+  gradientWith $ \col cs ->
+    cs
+      { Colour.chunkStyleBackground = Just col
+      }
+
+-- | Apply a foreground color gradient based on a parsed value.
+gradientFg ::
+  (Functor m) =>
+  (Word8, Word8, Word8) ->
+  (Word8, Word8, Word8) ->
+  (T.Text -> Maybe Double) ->
+  Segment m ->
+  Segment m
+gradientFg =
+  gradientWith $ \col cs ->
+    cs
+      { Colour.chunkStyleForeground = Just col
+      }
+
+gradientWith ::
+  (Functor m) =>
+  (Colour.Colour -> Colour.ChunkStyle -> Colour.ChunkStyle) ->
+  (Word8, Word8, Word8) ->
+  (Word8, Word8, Word8) ->
+  (T.Text -> Maybe Double) ->
+  Segment m ->
+  Segment m
+gradientWith applyColor (r1, g1, b1) (r2, g2, b2) parsePct (Segment s) =
+  Segment $ transform <$> s
   where
     transform f style =
       let formatted = f style
@@ -163,10 +196,15 @@ gradient (r1, g1, b1) (r2, g2, b2) parsePct (Segment s) = Segment $ fmap transfo
                   g = round $ fromIntegral g1 * (1 - p) + fromIntegral g2 * p
                   b = round $ fromIntegral b1 * (1 - p) + fromIntegral b2 * p
                   col = Colour.Colour24Bit r g b
-                  applyGrad c = c {Colour.chunkStyle = (Colour.chunkStyle c) {Colour.chunkStyleBackground = Just col}}
+                  applyGrad = applyColor col
+                  applyGradChunk chunk =
+                    chunk
+                      { Colour.chunkStyle = applyGrad $ Colour.chunkStyle chunk
+                      }
                in formatted
-                    { rendered = map applyGrad formatted.rendered,
-                      explain = \renderer -> formatted.explain $ renderer . map applyGrad
+                    { rendered = map applyGradChunk formatted.rendered,
+                      finalStyle = applyGrad formatted.finalStyle,
+                      explain = \renderer -> formatted.explain $ renderer . map applyGradChunk
                     }
             Nothing -> formatted
 

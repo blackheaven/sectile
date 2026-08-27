@@ -7,7 +7,7 @@
 -- for configuration file parsing.
 module DhallTypes
   ( -- * Segment configuration
-    SegmentConfig (..),
+    Segment (..),
     SegmentNode (..),
 
     -- * Style configuration
@@ -21,7 +21,7 @@ module DhallTypes
     ThemeName (..),
 
     -- * Top-level configuration
-    BarConfig (..),
+    BarConfig (..), GradientConfig(..),
   )
 where
 
@@ -38,6 +38,16 @@ data Colour = Colour
 
 deriving anyclass instance FromDhall Colour
 
+-- | Data for gradient configuration.
+data GradientConfig = GradientConfig
+  { from :: Colour,
+    to :: Colour,
+    parser :: Text
+  }
+  deriving stock (Eq, Show, Generic)
+
+deriving anyclass instance FromDhall GradientConfig
+
 -- | Style configuration for a segment.
 data StyleConfig = StyleConfig
   { foreground :: Maybe Colour,
@@ -46,7 +56,9 @@ data StyleConfig = StyleConfig
     italic :: Maybe Bool,
     theme :: Maybe ThemeName,
     themeForeground :: Maybe Text,
-    themeBackground :: Maybe Text
+    themeBackground :: Maybe Text,
+    gradientFg :: Maybe GradientConfig,
+    gradientBg :: Maybe GradientConfig
   }
   deriving stock (Eq, Show, Generic)
 
@@ -73,33 +85,34 @@ data DisplayConfig
 deriving anyclass instance FromDhall DisplayConfig
 
 -- | A segment in the status bar configuration.
-data SegmentConfig
-  = StringSegment {text :: Text}
-  | ShellSegment {name :: Text, command :: Text}
-  | TimeSegment {name :: Text, format :: Text}
-  | VolumeSegment {name :: Text}
-  | MprisSegment {name :: Text}
-  | GitSegment {name :: Text, path :: Text}
-  | HttpPollSegment {name :: Text, url :: Text}
-  | UptimeSegment {name :: Text}
-  | MemorySegment {name :: Text}
-  | LoadSegment {name :: Text}
-  | CpuSegment {name :: Text}
-  | DiskSegment {name :: Text, mountPoint :: Text}
-  | NetworkUpSegment {name :: Text, interface :: Text}
-  | NetworkDownSegment {name :: Text, interface :: Text}
-  | BatterySegment {name :: Text, battery :: Text}
-  | ThermalSegment {name :: Text, zone :: Text}
-  | WifiSegment {name :: Text, interface :: Text}
+data Segment
+  = String {text :: Text}
+  | Shell {name :: Text, command :: Text}
+  | Time {name :: Text, format :: Text}
+  | Volume {name :: Text}
+  | Mpris {name :: Text}
+  | Git {name :: Text, path :: Text}
+  | HttpPoll {name :: Text, url :: Text}
+  | Uptime {name :: Text}
+  | Memory {name :: Text}
+  | Load {name :: Text}
+  | Cpu {name :: Text}
+  | Disk {name :: Text, mountPoint :: Text}
+  | NetworkUp {name :: Text, interfaces :: [Text]}
+  | NetworkDown {name :: Text, interfaces :: [Text]}
+  | Battery {name :: Text, battery :: Text}
+  | Thermal {name :: Text, zone :: Text}
+  | Wifi {name :: Text, interface :: Text}
   deriving stock (Eq, Show, Generic)
 
-deriving anyclass instance FromDhall SegmentConfig
+deriving anyclass instance FromDhall Segment
 
 -- | A segment with its styling and display configuration.
 data SegmentNode = SegmentNode
-  { segment :: SegmentConfig,
+  { segment :: Segment,
     style :: Maybe StyleConfig,
-    display :: Maybe DisplayConfig
+    display :: Maybe DisplayConfig,
+    row :: Maybe Natural
   }
   deriving stock (Eq, Show, Generic)
 

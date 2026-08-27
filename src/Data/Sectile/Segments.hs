@@ -89,10 +89,9 @@ row runSegments (Name name) ss =
     pure $
       \style ->
         let (finalStyle, formatteds) =
-              let safeLast = foldl' (const Just) Nothing
-                  go (lastStyle, fs) f =
+              let go (lastStyle, fs) f =
                     let fmt = f lastStyle
-                     in (maybe lastStyle Colour.chunkStyle $ safeLast fmt.rendered, fmt : fs)
+                     in (fmt.finalStyle, fmt : fs)
                in reverse <$> foldl' go (style, []) formats
             rendered = concatMap (.rendered) formatteds
             explain :: ([Colour.Chunk] -> B.Builder) -> Detail B.Builder

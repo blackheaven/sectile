@@ -1,5 +1,10 @@
 let Colour = { Type = { r : Natural, g : Natural, b : Natural }, default = {=} }
 
+let GradientConfig =
+      { Type = { from : Colour.Type, to : Colour.Type, parser : Text }
+      , default = {=}
+      }
+
 let StyleConfig =
       { Type =
           { foreground : Optional Colour.Type
@@ -9,6 +14,8 @@ let StyleConfig =
           , theme : Optional Text
           , themeForeground : Optional Text
           , themeBackground : Optional Text
+          , gradientFg : Optional GradientConfig.Type
+          , gradientBg : Optional GradientConfig.Type
           }
       , default =
         { foreground = None Colour.Type
@@ -18,6 +25,8 @@ let StyleConfig =
         , theme = None Text
         , themeForeground = None Text
         , themeBackground = None Text
+        , gradientFg = None GradientConfig.Type
+        , gradientBg = None GradientConfig.Type
         }
       }
 
@@ -36,37 +45,37 @@ let DisplayConfig =
       , default = {=}
       }
 
-let SegmentConfig =
+let Segment =
       { Type =
-          < StringSegment : { text : Text }
-          | ShellSegment : { name : Text, command : Text }
-          | TimeSegment : { name : Text, format : Text }
-          | VolumeSegment : { name : Text }
-          | MprisSegment : { name : Text }
-          | GitSegment : { name : Text, path : Text }
-          | HttpPollSegment : { name : Text, url : Text }
-          | UptimeSegment : { name : Text }
-          | MemorySegment : { name : Text }
-          | LoadSegment : { name : Text }
-          | CpuSegment : { name : Text }
-          | DiskSegment : { name : Text, mountPoint : Text }
-          | NetworkUpSegment : { name : Text, interface : Text }
-          | NetworkDownSegment : { name : Text, interface : Text }
-          | BatterySegment : { name : Text, battery : Text }
-          | ThermalSegment : { name : Text, zone : Text }
-          | WifiSegment : { name : Text, interface : Text }
-
+          < String : { text : Text }
+          | Shell : { name : Text, command : Text }
+          | Time : { name : Text, format : Text }
+          | Volume : { name : Text }
+          | Mpris : { name : Text }
+          | Git : { name : Text, path : Text }
+          | HttpPoll : { name : Text, url : Text }
+          | Uptime : { name : Text }
+          | Memory : { name : Text }
+          | Load : { name : Text }
+          | Cpu : { name : Text }
+          | Disk : { name : Text, mountPoint : Text }
+          | NetworkUp : { name : Text, interfaces : List Text }
+          | NetworkDown : { name : Text, interfaces : List Text }
+          | Battery : { name : Text, battery : Text }
+          | Thermal : { name : Text, zone : Text }
+          | Wifi : { name : Text, interface : Text }
           >
       , default = {=}
       }
 
 let SegmentNode =
       { Type =
-          { segment : SegmentConfig.Type
+          { segment : Segment.Type
           , style : Optional StyleConfig.Type
           , display : Optional DisplayConfig.Type
+          , row : Optional Natural
           }
-      , default = { style = None StyleConfig.Type, display = None DisplayConfig.Type }
+      , default = { style = None StyleConfig.Type, display = None DisplayConfig.Type, row = None Natural }
       }
 
 let BarConfig =
@@ -82,9 +91,10 @@ let BarConfig =
       }
 
 in  { Colour
+    , GradientConfig
     , StyleConfig
     , DisplayConfig
-    , SegmentConfig
+    , Segment
     , SegmentNode
     , BarConfig
     }

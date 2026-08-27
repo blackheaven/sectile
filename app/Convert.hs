@@ -20,56 +20,67 @@ import Numeric.Natural (Natural)
 -- | Convert a full bar configuration into a list of sectile segments.
 convertBar :: S.BarConfig -> [Sectile.Segment IO]
 convertBar cfg =
-  let segs = convertNode <$> cfg.segments
+  let groupRows [] = []
+      groupRows (x:xs) = case x.row of
+        Nothing -> convertNode x : groupRows xs
+        Just r ->
+          let (rowNodes, rest) = span (\n -> n.row == Just r) (x:xs)
+           in Sectile.row mapConcurrently (mkName (T.pack $ "row-" ++ show r)) (map convertNode rowNodes) : groupRows rest
+      segs = groupRows cfg.segments
    in case cfg.separator of
         Nothing -> segs
         Just sep ->
           let sepSeg = Sectile.string sep
            in intercalateSeg sepSeg segs
 
--- | Convert a segment node configuration to a styled library segment.
+-- | Convert a single segment node.
 convertNode :: S.SegmentNode -> Sectile.Segment IO
-convertNode (S.SegmentNode {..}) =
-  let base = convertSegment segment
-      styled = maybe id applyStyle style base
-   in maybe id applyDisplay display styled
+convertNode cfg =
+  let seg = convertSegment cfg.segment
+      withDisplay = case cfg.display of
+        Nothing -> seg
+        Just d -> applyDisplay d seg
+      withStyle = case cfg.style of
+        Nothing -> withDisplay
+        Just s -> applyStyle s withDisplay
+   in withStyle
 
 -- | Convert a single segment configuration to a library segment.
-convertSegment :: S.SegmentConfig -> Sectile.Segment IO
+convertSegment :: S.Segment -> Sectile.Segment IO
 convertSegment = \case
-  S.StringSegment {..} ->
+  S.String {..} ->
     Sectile.string text
-  S.ShellSegment {..} ->
+  S.Shell {..} ->
     Sectile.sh (mkName name) (T.unpack command) Nothing
-  S.TimeSegment {..} ->
+  S.Time {..} ->
     Sectile.time (mkName name) (T.unpack format)
-  S.VolumeSegment {..} ->
+  S.Volume {..} ->
     Sectile.volume (mkName name)
-  S.MprisSegment {..} ->
+  S.Mpris {..} ->
     Sectile.mpris (mkName name)
-  S.GitSegment {..} ->
+  S.Git {..} ->
     Sectile.git (mkName name) (T.unpack path)
-  S.HttpPollSegment {..} ->
+  S.HttpPoll {..} ->
     Sectile.httpPoll (mkName name) (T.unpack url)
-  S.UptimeSegment {..} ->
+  S.Uptime {..} ->
     System.uptime (mkName name)
-  S.MemorySegment {..} ->
+  S.Memory {..} ->
     System.memory (mkName name)
-  S.LoadSegment {..} ->
+  S.Load {..} ->
     System.load (mkName name)
-  S.CpuSegment {..} ->
+  S.Cpu {..} ->
     System.cpu (mkName name)
-  S.DiskSegment {..} ->
+  S.Disk {..} ->
     System.disk (mkName name) (T.unpack mountPoint)
-  S.NetworkUpSegment {..} ->
-    System.networkUp (mkName name) interface
-  S.NetworkDownSegment {..} ->
-    System.networkDown (mkName name) interface
-  S.BatterySegment {..} ->
+  S.NetworkUp {..} ->
+    System.networkUp (mkName name) interfaces
+  S.NetworkDown {..} ->
+    System.networkDown (mkName name) interfaces
+  S.Battery {..} ->
     System.battery (mkName name) (T.unpack battery)
-  S.ThermalSegment {..} ->
+  S.Thermal {..} ->
     System.thermal (mkName name) (T.unpack zone)
-  S.WifiSegment {..} ->
+  S.Wifi {..} ->
     System.wifi (mkName name) (T.unpack interface)
 
 -- | Apply a style configuration to a segment.
@@ -95,7 +106,35 @@ applyStyle cfg seg =
               bg = resolveThemeColour t bgName
            in Style.forceStyle (Themes.themeStyle fg bg)
         _ -> id
-   in withTheme $ withItalic $ withBold $ withBg $ withFg seg
+      parsePercent t =
+        case T.splitOn "%" t of
+          [] -> Nothing
+          [_] -> Nothing
+          (xs:_) ->
+            let numStr = T.takeWhileEnd (\c -> c == '.' || (c >= '0' && c <= '9')) xs
+             in case reads (T.unpack numStr) of
+                  [(d, "")] -> Just (d / 100.0)
+                  _ -> Nothing
+      parseLoad t =
+        case reads (T.unpack t) of
+          [(d, _)] -> Just (max 0 (min 1 (d / 4.0)))
+          _ -> Nothing
+      getParser "percentage" = parsePercent
+      getParser "load" = parseLoad
+      getParser _ = const Nothing
+      withGradFg = case cfg.gradientFg of
+        Nothing -> id
+        Just (S.GradientConfig f t p) ->
+          let S.Colour r1 g1 b1 = f
+              S.Colour r2 g2 b2 = t
+           in Style.gradientFg (fromIntegral r1, fromIntegral g1, fromIntegral b1) (fromIntegral r2, fromIntegral g2, fromIntegral b2) (getParser p)
+      withGradBg = case cfg.gradientBg of
+        Nothing -> id
+        Just (S.GradientConfig f t p) ->
+          let S.Colour r1 g1 b1 = f
+              S.Colour r2 g2 b2 = t
+           in Style.gradientBg (fromIntegral r1, fromIntegral g1, fromIntegral b1) (fromIntegral r2, fromIntegral g2, fromIntegral b2) (getParser p)
+   in withGradBg $ withGradFg $ withItalic $ withBold $ withBg $ withFg $ withTheme seg
 
 -- | Apply a display transformation to a segment.
 applyDisplay :: S.DisplayConfig -> Sectile.Segment IO -> Sectile.Segment IO

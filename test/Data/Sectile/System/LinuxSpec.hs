@@ -45,20 +45,20 @@ spec = do
     it "renders disk info for root mount" $ do
       output <- renderSegment Colour.WithoutColours (disk "disk" "/")
       let txt = builderToText output
-      txt `shouldSatisfy` T.isInfixOf "/"
+      txt `shouldSatisfy` T.isInfixOf "iB ("
 
   describe "networkDown" $ do
     it "renders network receive bytes for lo" $ do
-      output <- renderSegment Colour.WithoutColours (networkDown "net" "lo")
+      output <- renderSegment Colour.WithoutColours (networkDown "net" ["lo"])
       let txt = builderToText output
-      -- Should be a number (bytes) or error
-      txt `shouldSatisfy` (\t -> T.all (\c -> c >= '0' && c <= '9') t || T.isInfixOf "Error" t)
+      -- Should be a formatted string with B/s or error
+      txt `shouldSatisfy` (\t -> T.isSuffixOf "B/s" t || T.isInfixOf "Error" t)
 
   describe "networkUp" $ do
     it "renders network transmit bytes for lo" $ do
-      output <- renderSegment Colour.WithoutColours (networkUp "net" "lo")
+      output <- renderSegment Colour.WithoutColours (networkUp "net" ["lo"])
       let txt = builderToText output
-      txt `shouldSatisfy` (\t -> T.all (\c -> c >= '0' && c <= '9') t || T.isInfixOf "Error" t)
+      txt `shouldSatisfy` (\t -> T.isSuffixOf "B/s" t || T.isInfixOf "Error" t)
 
 builderToText :: B.Builder -> T.Text
 builderToText = T.decodeUtf8 . BSL.toStrict . B.toLazyByteString

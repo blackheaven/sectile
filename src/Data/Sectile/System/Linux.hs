@@ -37,6 +37,10 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import qualified Data.Text.Read as T
 import Numeric (showFFloat)
+import qualified System.Exit as Exit
+import qualified System.Process as Process
+import qualified Data.Time.Clock.POSIX as POSIX
+import qualified System.Directory as Dir
 
 -- | Display system uptime by reading @\/proc\/uptime@.
 --
@@ -132,9 +136,7 @@ cpu (Name name) =
 
 -- | Display disk usage for a given mount point.
 --
--- Reads @\/proc\/mounts@ to verify the mount point exists, then
--- uses @\/proc\/diskstats@ cross-referenced with @statvfs@ data.
--- Actually uses 'System.Process' to call @df@.
+-- Uses 'System.Process' to call @df@.
 --
 -- Shows used, total, and percentage, e.g. @"\/" 450GiB (88%)@.
 --
@@ -148,65 +150,77 @@ cpu (Name name) =
 disk :: Name -> FilePath -> Segment IO
 disk (Name name) mountPoint =
   Segment $ do
-    result <- tryReadFile "/proc/mounts"
-    let txt = case result of
-          Right content
-            | hasMountPoint mountPoint content -> case parseDiskUsage mountPoint content of
-                Just formatted -> formatted
-                Nothing -> errMsg name
-            | otherwise -> errMsg name
-          Left _ -> errMsg name
+    (exitCode, out, _) <- Process.readProcessWithExitCode "df" ["--output=avail,pcent", "-B1024", mountPoint] ""
+    let txt = case exitCode of
+          Exit.ExitSuccess ->
+            case parseDiskUsage (T.pack out) of
+              Just formatted -> formatted
+              Nothing -> errMsg name
+          _ -> errMsg name
     pure $ mkFormatted name "disk" txt [("MountPoint", T.pack mountPoint)]
 
--- | Display network upload speed for a given interface.
---
--- Reads @\/proc\/net\/dev@ for the transmit bytes of the specified interface.
--- Note: this returns the cumulative bytes, not the rate. For rate calculation,
--- use with an external state mechanism.
---
--- Example:
---
--- > import Data.Sectile
--- >
--- > netUp :: Segment IO
--- > netUp = networkUp "net-up" "eno1"
--- > -- Renders e.g. "1734813594"
-networkUp :: Name -> T.Text -> Segment IO
-networkUp (Name name) iface =
-  Segment $ do
-    result <- tryReadFile "/proc/net/dev"
-    let txt = case result of
-          Right content ->
-            case parseNetDev iface NetTransmit content of
-              Just formatted -> formatted
-              Nothing -> errMsg name
-          Left _ -> errMsg name
-    pure $ mkFormatted name "networkUp" txt [("Interface", iface)]
+-- | Display network speed for a given list of interfaces.
+networkStats :: Name -> [T.Text] -> NetDirection -> Segment IO
+networkStats (Name name) ifaces direction = Segment $ do
+  contentRes <- tryReadFile "/proc/net/dev"
+  case contentRes of
+    Left _ -> pure $ mkFormatted name typeName (errMsg name) []
+    Right content -> do
+      let statsList = mapMaybe (\iface -> parseNetDevBytes iface direction content) ifaces
+      case statsList of
+        [] -> pure $ mkFormatted name typeName (errMsg name) []
+        _ -> do
+          let totalBytes = sum statsList
+          now <- POSIX.getPOSIXTime
+          let nowMs = round (now * 1000) :: Int
+          
+          sessionOutRes <- (Right <$> Process.readProcessWithExitCode "tmux" ["display-message", "-p", "#S"] "")
+                           `Exception.catch` (\(_ :: IOError) -> pure $ Left ())
+          let session = case sessionOutRes of
+                          Right (Exit.ExitSuccess, out, _) -> T.unpack (T.strip (T.pack out))
+                          _ -> "default"
+          
+          let segName = T.unpack $ TL.toStrict $ TLE.decodeUtf8 $ B.toLazyByteString name
+          let memFile = "/tmp/tmux-net-speeds-mem-" <> session <> "-" <> segName
+          
+          fileExists <- Dir.doesFileExist memFile
+          rate <- if fileExists
+            then do
+              fileContent <- tryReadFile memFile
+              case fileContent of
+                Right fc -> do
+                  case T.words (T.strip fc) of
+                    [tsStr, bytesStr] -> do
+                      case (readInt tsStr, readInt bytesStr) of
+                        (Just tsPrev, Just bytesPrev) -> do
+                          let dt = nowMs - tsPrev
+                          if dt > 0
+                            then pure $ Just $ (totalBytes - bytesPrev) * 1000 `div` dt
+                            else pure Nothing
+                        _ -> pure Nothing
+                    _ -> pure Nothing
+                Left _ -> pure Nothing
+            else pure Nothing
+          
+          _ <- tryWriteFile memFile (T.pack (show nowMs) <> " " <> T.pack (show totalBytes))
+          
+          let txt = case rate of
+                Just r -> formatKiB (r `div` 1024) <> "/s"
+                Nothing -> "  -  B/s"
+          
+          pure $ mkFormatted name typeName txt [("Interfaces", T.intercalate "," ifaces)]
+  where
+    typeName = case direction of
+      NetTransmit -> "networkUp"
+      NetReceive -> "networkDown"
 
--- | Display network download speed for a given interface.
---
--- Reads @\/proc\/net\/dev@ for the receive bytes of the specified interface.
--- Note: this returns the cumulative bytes, not the rate. For rate calculation,
--- use with an external state mechanism.
---
--- Example:
---
--- > import Data.Sectile
--- >
--- > netDown :: Segment IO
--- > netDown = networkDown "net-down" "eno1"
--- > -- Renders e.g. "9501456697"
-networkDown :: Name -> T.Text -> Segment IO
-networkDown (Name name) iface =
-  Segment $ do
-    result <- tryReadFile "/proc/net/dev"
-    let txt = case result of
-          Right content ->
-            case parseNetDev iface NetReceive content of
-              Just formatted -> formatted
-              Nothing -> errMsg name
-          Left _ -> errMsg name
-    pure $ mkFormatted name "networkDown" txt [("Interface", iface)]
+-- | Display network upload speed for a given list of interfaces.
+networkUp :: Name -> [T.Text] -> Segment IO
+networkUp name ifaces = networkStats name ifaces NetTransmit
+
+-- | Display network download speed for a given list of interfaces.
+networkDown :: Name -> [T.Text] -> Segment IO
+networkDown name ifaces = networkStats name ifaces NetReceive
 
 -- | Display battery capacity and status by reading @\/sys\/class\/power_supply\/BAT*@.
 battery :: Name -> String -> Segment IO
@@ -337,28 +351,24 @@ parseCpuUsage content =
                 _ -> Nothing
         _ -> Nothing
 
--- | Check if a mount point exists in /proc/mounts content.
-hasMountPoint :: FilePath -> T.Text -> Bool
-hasMountPoint mp content =
-  any (\l -> case T.words l of (_ : m : _) -> T.pack mp == m; _ -> False) (T.lines content)
-
--- | Parse disk usage from /proc/mounts. Actually reads /proc/self/mountinfo
--- but that's complex, so we use statvfs approach via reading /proc/mounts
--- then reading from the filesystem.
-parseDiskUsage :: FilePath -> T.Text -> Maybe T.Text
-parseDiskUsage mp content =
+-- | Parse disk usage from df --output=size,used,pcent -B1024 output.
+parseDiskUsage :: T.Text -> Maybe T.Text
+parseDiskUsage content =
   let lns = T.lines content
-   in case filter (\l -> case T.words l of (_ : m : _) -> T.pack mp == m; _ -> False) lns of
-        (_ : _) ->
-          -- We found the mount point in /proc/mounts, but we can't get size info
-          -- from /proc/mounts alone. Return the mount point name.
-          -- The actual size data would require statvfs syscall.
-          Just $ T.pack mp
+   in case lns of
+        (_ : dataLine : _) ->
+          case T.words dataLine of
+            (availT : pcentT : _) ->
+              case (readInt availT) of
+                (Just avail) ->
+                  Just $ formatKiB avail <> " (" <> pcentT <> ")"
+                _ -> Nothing
+            _ -> Nothing
         _ -> Nothing
 
--- | Parse /proc/net/dev for a specific interface.
-parseNetDev :: T.Text -> NetDirection -> T.Text -> Maybe T.Text
-parseNetDev iface direction content =
+-- | Parse /proc/net/dev for a specific interface returning bytes.
+parseNetDevBytes :: T.Text -> NetDirection -> T.Text -> Maybe Int
+parseNetDevBytes iface direction content =
   let lns = T.lines content
       ifacePrefix = T.strip iface <> ":"
       matchLine l =
@@ -373,9 +383,15 @@ parseNetDev iface direction content =
                 NetReceive -> 0
                 NetTransmit -> 8
            in case drop idx parts of
-                (val : _) -> Just val
+                (val : _) -> readInt val
                 _ -> Nothing
         _ -> Nothing
+
+-- | Try to write a file, catching any IOException.
+tryWriteFile :: FilePath -> T.Text -> IO (Either IOError ())
+tryWriteFile path content =
+  (Right <$> writeFile path (T.unpack content))
+    `Exception.catch` (\(e :: IOError) -> pure $ Left e)
 
 -- | Format kibibytes to human-readable.
 formatKiB :: Int -> T.Text
@@ -388,7 +404,12 @@ formatKiB kb
 
 -- | Show a Double with 1 decimal place.
 showFFloat1 :: Double -> String
-showFFloat1 x = showFFloat (Just 1) x ""
+showFFloat1 x = showFFloat (Just n) x ""
+  where
+    n
+      | abs x >= 100 = 0
+      | abs x >= 10 = 1
+      | otherwise = 2
 
 -- | Read an Int from Text, returning Nothing on failure.
 readInt :: T.Text -> Maybe Int
