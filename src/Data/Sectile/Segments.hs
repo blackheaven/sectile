@@ -1,13 +1,3 @@
--- |
--- Module        : Data.Sectile.Segments
--- Copyright     : Gautier DI FOLCO
--- License       : ISC
---
--- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
--- Stability     : Stable
--- Portability   : Portable
---
--- Visible segment constructors for building status line components.
 module Data.Sectile.Segments
   ( -- * Basic segments
     string,
@@ -53,16 +43,17 @@ import qualified System.Process as Process
 string :: (Applicative m) => T.Text -> Segment m
 string txt =
   Segment $
-    pure $
-      \style ->
-        let (finalStyle, rendered) = Colour.parseAnsiChunks style txt
-            explain f =
-              DetailList
-                [ DetailPlain "Type: string",
-                  DetailPlain $ "Value: " <> T.encodeUtf8Builder txt,
-                  DetailPlain $ "Rendered: " <> f rendered
-                ]
-         in Formatted {..}
+    pure $ do
+      currentSt <- currentStyle
+      let (finalStyle, rendered) = Colour.parseAnsiChunks currentSt txt
+          explain f =
+            DetailList
+              [ DetailPlain "Type: string",
+                DetailPlain $ "Value: " <> T.encodeUtf8Builder txt,
+                DetailPlain $ "Rendered: " <> f rendered
+              ]
+      _ <- updateStyle (const finalStyle)
+      pure Formatted {..}
 
 -- | Combine multiple segments into a named row.
 --
@@ -83,27 +74,22 @@ string txt =
 -- >         sh "host" "hostname" Nothing
 -- >       ]
 row :: (Monad m) => SegmentsRunner m -> Name -> [Segment m] -> Segment m
-row runSegments (Name name) ss =
+row runSegments name@(Name nameBuilder) ss =
   Segment $ do
-    formats <- runSegments (.runSegment) ss
-    pure $
-      \style ->
-        let (finalStyle, formatteds) =
-              let go (lastStyle, fs) f =
-                    let fmt = f lastStyle
-                     in (fmt.finalStyle, fmt : fs)
-               in reverse <$> foldl' go (style, []) formats
-            rendered = concatMap (.rendered) formatteds
-            explain :: ([Colour.Chunk] -> B.Builder) -> Detail B.Builder
-            explain f =
-              DetailList $
-                [ DetailPlain $ "Name: " <> name,
-                  DetailPlain "Type: row",
-                  DetailPlain $ "Rendered: " <> f rendered,
-                  DetailPlain "Details:"
-                ]
-                  <> map (DetailNested . flip (.explain) f) formatteds
-         in Formatted {..}
+    states <- runSegments (.runSegment) ss
+    pure $ scopeBindings name $ do
+      formatteds <- sequence states
+      let rendered = concatMap (.rendered) formatteds
+          explain :: ([Colour.Chunk] -> B.Builder) -> Detail B.Builder
+          explain f =
+            DetailList $
+              [ DetailPlain $ "Name: " <> nameBuilder,
+                DetailPlain "Type: row",
+                DetailPlain $ "Rendered: " <> f rendered,
+                DetailPlain "Details:"
+              ]
+                <> map (DetailNested . flip (.explain) f) formatteds
+      pure Formatted {..}
 
 -- | Run a shell command and capture its stdout as a segment.
 --
@@ -133,18 +119,19 @@ sh (Name name) cmd env =
     let stdout = case result of
           Right out -> T.pack out
           Left _ -> "Error on " <> TL.toStrict (TLE.decodeUtf8 (B.toLazyByteString name))
-    pure $
-      \style ->
-        let (finalStyle, rendered) = Colour.parseAnsiChunks style stdout
-            explain f =
-              DetailList
-                [ DetailPlain $ "Name: " <> name,
-                  DetailPlain "Type: sh",
-                  DetailPlain $ "Command: " <> T.encodeUtf8Builder (T.pack cmd),
-                  DetailPlain $ "STDOUT: " <> T.encodeUtf8Builder stdout,
-                  DetailPlain $ "Rendered: " <> f rendered
-                ]
-         in Formatted {..}
+    pure $ do
+      currentSt <- currentStyle
+      let (finalStyle, rendered) = Colour.parseAnsiChunks currentSt stdout
+          explain f =
+            DetailList
+              [ DetailPlain $ "Name: " <> name,
+                DetailPlain "Type: sh",
+                DetailPlain $ "Command: " <> T.encodeUtf8Builder (T.pack cmd),
+                DetailPlain $ "STDOUT: " <> T.encodeUtf8Builder stdout,
+                DetailPlain $ "Rendered: " <> f rendered
+              ]
+      _ <- updateStyle (const finalStyle)
+      pure Formatted {..}
 
 -- | Display the current time formatted with the given format string.
 --
@@ -167,18 +154,19 @@ time (Name name) format =
     let txt = case result of
           Right t -> T.pack t
           Left _ -> "Error on " <> TL.toStrict (TLE.decodeUtf8 (B.toLazyByteString name))
-    pure $
-      \style ->
-        let (finalStyle, rendered) = Colour.parseAnsiChunks style txt
-            explain f =
-              DetailList
-                [ DetailPlain $ "Name: " <> name,
-                  DetailPlain "Type: time",
-                  DetailPlain $ "Format: " <> T.encodeUtf8Builder (T.pack format),
-                  DetailPlain $ "Formatted: " <> T.encodeUtf8Builder txt,
-                  DetailPlain $ "Rendered: " <> f rendered
-                ]
-         in Formatted {..}
+    pure $ do
+      currentSt <- currentStyle
+      let (finalStyle, rendered) = Colour.parseAnsiChunks currentSt txt
+          explain f =
+            DetailList
+              [ DetailPlain $ "Name: " <> name,
+                DetailPlain "Type: time",
+                DetailPlain $ "Format: " <> T.encodeUtf8Builder (T.pack format),
+                DetailPlain $ "Formatted: " <> T.encodeUtf8Builder txt,
+                DetailPlain $ "Rendered: " <> f rendered
+              ]
+      _ <- updateStyle (const finalStyle)
+      pure Formatted {..}
 
 -- | Display the current volume using wpctl (Pipewire).
 --

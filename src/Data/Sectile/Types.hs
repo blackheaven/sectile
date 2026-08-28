@@ -12,6 +12,7 @@ module Data.Sectile.Types
   ( -- * Main types
     Segment (..),
     Formatted (..),
+    Env (..),
     Detail (..),
 
     -- * Segment builder types
@@ -19,12 +20,27 @@ module Data.Sectile.Types
 
     -- * Runner type
     SegmentsRunner,
+
+    -- * Environment helpers
+    currentStyle,
+    updateStyle,
+    currentBindings,
+    appendBindings,
+    updateBindings,
+    scopeBindings,
   )
 where
 
+import Control.Monad.State (State, gets, modify)
+import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Builder as B
+import qualified Data.ByteString.Lazy as LBS
+import Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Sectile.Tmux as Colour
 import Data.String (IsString)
+import Data.Text (Text)
+import qualified Data.Text.Encoding as Text.Encoding
 
 -- | A composable segment of a status line.
 --
@@ -39,7 +55,7 @@ import Data.String (IsString)
 -- > hello :: Segment IO
 -- > hello = string "Hello, world!"
 newtype Segment m = Segment
-  { runSegment :: m (Colour.ChunkStyle -> Formatted)
+  { runSegment :: m (State Env Formatted)
   }
 
 -- | The result of rendering a 'Segment'.
@@ -56,8 +72,13 @@ newtype Segment m = Segment
 -- > inspectRendered fmt = fmt.rendered
 data Formatted = Formatted
   { rendered :: [Colour.Chunk],
-    finalStyle :: Colour.ChunkStyle,
     explain :: ([Colour.Chunk] -> B.Builder) -> Detail B.Builder
+  }
+
+-- | Segment environment.
+data Env = Env
+  { style :: Colour.ChunkStyle,
+    bindings :: HashMap Text Aeson.Value
   }
 
 -- | A tree structure for segment explanations, used by 'Data.Sectile.Runners.explainSegment'.
@@ -105,6 +126,37 @@ newtype Name
 -- > sequentialRunner :: SegmentsRunner IO
 -- > sequentialRunner = mapM
 type SegmentsRunner m =
-  (Segment m -> m (Colour.ChunkStyle -> Formatted)) ->
+  (Segment m -> m (State Env Formatted)) ->
   [Segment m] ->
-  m [Colour.ChunkStyle -> Formatted]
+  m [State Env Formatted]
+
+currentStyle :: State Env Colour.ChunkStyle
+currentStyle = gets style
+
+updateStyle :: (Colour.ChunkStyle -> Colour.ChunkStyle) -> State Env Colour.ChunkStyle
+updateStyle f = do
+  modify (\env -> env {style = f (style env)})
+  gets style
+
+currentBindings :: State Env (HashMap Text Aeson.Value)
+currentBindings = gets bindings
+
+updateBindings :: (HashMap Text Aeson.Value -> HashMap Text Aeson.Value) -> State Env (HashMap Text Aeson.Value)
+updateBindings f = do
+  modify (\env -> env {bindings = f (bindings env)})
+  gets bindings
+
+appendBindings :: HashMap Text Aeson.Value -> State Env (HashMap Text Aeson.Value)
+appendBindings newBindings = updateBindings (HashMap.union newBindings)
+
+scopeBindings :: Name -> State Env a -> State Env a
+scopeBindings (Name nameBuilder) action = do
+  let prefix = Text.Encoding.decodeUtf8 (LBS.toStrict (B.toLazyByteString nameBuilder)) <> "."
+  let mapKeys f hm = HashMap.fromList $ fmap (\(k, v) -> (f k, v)) (HashMap.toList hm)
+  oldBindings <- gets bindings
+  modify (\env -> env {bindings = HashMap.empty})
+  result <- action
+  childBindings <- gets bindings
+  let prefixedChildBindings = mapKeys (prefix <>) childBindings
+  modify (\env -> env {bindings = HashMap.union prefixedChildBindings oldBindings})
+  pure result

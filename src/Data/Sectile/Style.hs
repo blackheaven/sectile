@@ -1,13 +1,3 @@
--- |
--- Module        : Data.Sectile.Style
--- Copyright     : Gautier DI FOLCO
--- License       : ISC
---
--- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
--- Stability     : Stable
--- Portability   : Portable
---
--- Style manipulation functions for segments.
 module Data.Sectile.Style
   ( -- * Style combinators
     between,
@@ -69,7 +59,11 @@ between start end ss = start : (ss <> [end])
 -- > boldSegment :: Segment IO -> Segment IO
 -- > boldSegment = changeStyle (\s -> s {Colour.chunkStyleConsoleIntensity = Just Colour.BoldIntensity})
 changeStyle :: (Functor m) => (Colour.ChunkStyle -> Colour.ChunkStyle) -> Segment m -> Segment m
-changeStyle c (Segment s) = Segment $ (. c) <$> s
+changeStyle c (Segment s) = Segment $ fmap transform s
+  where
+    transform action = do
+      _ <- updateStyle c
+      action
 
 -- | Force a style transformation on all chunks in a segment's output.
 --
@@ -84,13 +78,13 @@ changeStyle c (Segment s) = Segment $ (. c) <$> s
 -- > makeItalic :: Segment IO -> Segment IO
 -- > makeItalic = forceStyle (\s -> s {Colour.chunkStyleItalic = Just True})
 forceStyle :: (Functor m) => (Colour.ChunkStyle -> Colour.ChunkStyle) -> Segment m -> Segment m
-forceStyle c (Segment s) = Segment $ force <$> s
+forceStyle c (Segment s) = Segment $ fmap transform s
   where
-    force f style =
-      let formatted = f style
-       in formatted
+    transform action = do
+      formatted <- action
+      _ <- updateStyle c
+      pure formatted
             { rendered = updateChunk <$> formatted.rendered,
-              finalStyle = c formatted.finalStyle,
               explain = \renderer -> formatted.explain $ renderer . map updateChunk
             }
     updateChunk chunk = chunk {Colour.chunkStyle = c $ Colour.chunkStyle chunk}
@@ -135,17 +129,17 @@ swapForegroundBackgroundStyle s =
 warnIf :: (Functor m) => (T.Text -> Bool) -> Colour.ChunkStyle -> Segment m -> Segment m
 warnIf p warnStyle (Segment s) = Segment $ fmap transform s
   where
-    transform f style =
-      let formatted = f style
-          txt = mconcat $ map Colour.chunkText formatted.rendered
+    transform action = do
+      formatted <- action
+      let txt = mconcat $ map Colour.chunkText formatted.rendered
           applyWarn c = c {Colour.chunkStyle = warnStyle}
-       in if p txt
-            then
-              formatted
-                { rendered = map applyWarn formatted.rendered,
-                  explain = \renderer -> formatted.explain $ renderer . map applyWarn
-                }
-            else formatted
+      if p txt
+        then
+          pure formatted
+            { rendered = map applyWarn formatted.rendered,
+              explain = \renderer -> formatted.explain $ renderer . map applyWarn
+            }
+        else pure formatted
 
 -- | Apply a background color gradient based on a parsed value.
 gradientBg ::
@@ -184,29 +178,29 @@ gradientWith ::
   Segment m ->
   Segment m
 gradientWith applyColor (r1, g1, b1) (r2, g2, b2) parsePct (Segment s) =
-  Segment $ transform <$> s
+  Segment $ fmap transform s
   where
-    transform f style =
-      let formatted = f style
-          txt = mconcat $ map Colour.chunkText formatted.rendered
-       in case parsePct txt of
-            Just pct ->
-              let p = max 0 (min 1 pct)
-                  r = round $ fromIntegral r1 * (1 - p) + fromIntegral r2 * p
-                  g = round $ fromIntegral g1 * (1 - p) + fromIntegral g2 * p
-                  b = round $ fromIntegral b1 * (1 - p) + fromIntegral b2 * p
-                  col = Colour.Colour24Bit r g b
-                  applyGrad = applyColor col
-                  applyGradChunk chunk =
-                    chunk
-                      { Colour.chunkStyle = applyGrad $ Colour.chunkStyle chunk
-                      }
-               in formatted
-                    { rendered = map applyGradChunk formatted.rendered,
-                      finalStyle = applyGrad formatted.finalStyle,
-                      explain = \renderer -> formatted.explain $ renderer . map applyGradChunk
-                    }
-            Nothing -> formatted
+    transform action = do
+      formatted <- action
+      let txt = mconcat $ map Colour.chunkText formatted.rendered
+      case parsePct txt of
+        Just pct -> do
+          let p = max 0 (min 1 pct)
+              r = round $ fromIntegral r1 * (1 - p) + fromIntegral r2 * p
+              g = round $ fromIntegral g1 * (1 - p) + fromIntegral g2 * p
+              b = round $ fromIntegral b1 * (1 - p) + fromIntegral b2 * p
+              col = Colour.Colour24Bit r g b
+              applyGrad = applyColor col
+          _ <- updateStyle applyGrad
+          let applyGradChunk chunk =
+                chunk
+                  { Colour.chunkStyle = applyGrad $ Colour.chunkStyle chunk
+                  }
+          pure formatted
+                { rendered = map applyGradChunk formatted.rendered,
+                  explain = \renderer -> formatted.explain $ renderer . map applyGradChunk
+                }
+        Nothing -> pure formatted
 
 -- | Lens for the italic flag of a 'Colour.ChunkStyle'.
 styleItalic :: Optics.Lens' Colour.ChunkStyle (Maybe Bool)

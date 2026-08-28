@@ -1,14 +1,3 @@
--- |
--- Module        : Data.Sectile.Display
--- Copyright     : Gautier DI FOLCO
--- License       : ISC
---
--- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
--- Stability     : Stable
--- Portability   : Portable
---
--- Display transformation segments for truncating, padding,
--- and constraining segment output width.
 module Data.Sectile.Display
   ( -- * Truncation
     takeStart,
@@ -208,9 +197,9 @@ marquee width tickLenSeg (Segment s) = Segment $ do
   now <- Time.getPOSIXTime
   let ticks = floor now `div` tickLenSeg
   runSeg <- s
-  pure $ \style ->
-    let formatted = runSeg style
-        txt = mconcat $ map Colour.chunkText formatted.rendered
+  pure $ do
+    formatted <- runSeg
+    let txt = mconcat $ map Colour.chunkText formatted.rendered
         len = T.length txt
         shifted =
           if len <= width
@@ -219,7 +208,7 @@ marquee width tickLenSeg (Segment s) = Segment $ do
               let offset = ticks `mod` len
                   padded = txt <> " " <> txt
                in T.take width (T.drop offset padded)
-     in formatted
+    pure formatted
           { rendered = [Colour.Chunk shifted Colour.noStyle],
             explain = \renderer -> formatted.explain $ renderer . const [Colour.Chunk shifted Colour.noStyle]
           }
@@ -228,11 +217,11 @@ marquee width tickLenSeg (Segment s) = Segment $ do
 
 -- | Apply a chunk transformation to a segment.
 transformChunks :: (Functor m) => ([Colour.Chunk] -> [Colour.Chunk]) -> Segment m -> Segment m
-transformChunks f (Segment s) = Segment $ transform <$> s
+transformChunks f (Segment s) = Segment $ fmap transform s
   where
-    transform g style =
-      let formatted = g style
-       in formatted
+    transform g = do
+      formatted <- g
+      pure formatted
             { rendered = f formatted.rendered,
               explain = \renderer -> formatted.explain $ renderer . f
             }

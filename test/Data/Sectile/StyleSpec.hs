@@ -3,7 +3,7 @@ module Data.Sectile.StyleSpec (spec) where
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as BSL
 import Data.Sectile
-import Data.Sectile.Tmux (Brightness (..), ConsoleIntensity (..), TerminalColour (..))
+import Data.Sectile.Tmux (Brightness (..), TerminalColour (..))
 import qualified Data.Sectile.Tmux as Colour
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T

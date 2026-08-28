@@ -16,18 +16,20 @@ library
   default-language:   Haskell2010
   build-depends:
       base == 4.*
+    , aeson == 2.*
     , bytestring == 0.12.*
+    , ede >= 0.3.4.0 && < 0.4
     , lens == 5.*
     , lens-regex-pcre == 1.1.*
+    , mtl >= 2.3.1 && < 2.4
     , optics == 0.4.*
     , optics-core == 0.4.*
     , pcre-light == 0.4.*
     , process == 1.6.*
     , directory == 1.3.*
-
-
     , text == 2.*
     , time >= 1.12 && < 2
+    , unordered-containers >= 0.2.20.1 && < 0.3
   hs-source-dirs: src
   exposed-modules:
     Data.Sectile
@@ -76,6 +78,7 @@ test-suite spec
     Data.Sectile.StyleSpec
     Data.Sectile.TmuxSpec
     Data.Sectile.System.LinuxSpec
+    Data.Sectile.TypesSpec
     Paths_sectile
   autogen-modules:
     Paths_sectile
@@ -107,9 +110,21 @@ test-suite spec
     , sectile
     , hedgehog
     , hspec
+    , mtl
+    , aeson
+    , unordered-containers
     , hspec-core
+    , mtl
+    , aeson
+    , unordered-containers
     , hspec-discover
+    , mtl
+    , aeson
+    , unordered-containers
     , hspec-hedgehog
+    , mtl
+    , aeson
+    , unordered-containers
     , optics-core
     , text
     , time

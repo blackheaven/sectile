@@ -41,6 +41,7 @@ import qualified System.Exit as Exit
 import qualified System.Process as Process
 import qualified Data.Time.Clock.POSIX as POSIX
 import qualified System.Directory as Dir
+import Control.Monad.State (State)
 
 -- | Display system uptime by reading @\/proc\/uptime@.
 --
@@ -274,9 +275,10 @@ errMsg :: B.Builder -> T.Text
 errMsg name = "Error on " <> TL.toStrict (TLE.decodeUtf8 (B.toLazyByteString name))
 
 -- | Build a 'Formatted' value with standard explain structure.
-mkFormatted :: B.Builder -> T.Text -> T.Text -> [(T.Text, T.Text)] -> Colour.ChunkStyle -> Formatted
-mkFormatted name typeName txt extraFields style =
-  let (finalStyle, rendered) = Colour.parseAnsiChunks style txt
+mkFormatted :: B.Builder -> T.Text -> T.Text -> [(T.Text, T.Text)] -> State Env Formatted
+mkFormatted name typeName txt extraFields = do
+  currentSt <- currentStyle
+  let (finalStyle, rendered) = Colour.parseAnsiChunks currentSt txt
       explain f =
         DetailList $
           [ DetailPlain $ "Name: " <> name,
@@ -285,9 +287,8 @@ mkFormatted name typeName txt extraFields style =
             DetailPlain $ "Rendered: " <> f rendered
           ]
             <> map (\(k, v) -> DetailPlain $ T.encodeUtf8Builder k <> ": " <> T.encodeUtf8Builder v) extraFields
-   in Formatted {..}
-
--- | Try to read a file, catching any IOException.
+  _ <- updateStyle (const finalStyle)
+  pure Formatted {..}
 tryReadFile :: FilePath -> IO (Either IOError T.Text)
 tryReadFile path =
   (Right . T.pack <$> readFile path)

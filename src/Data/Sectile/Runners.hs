@@ -1,13 +1,3 @@
--- |
--- Module        : Data.Sectile.Runners
--- Copyright     : Gautier DI FOLCO
--- License       : ISC
---
--- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
--- Stability     : Stable
--- Portability   : Portable
---
--- Runners for rendering and explaining segments.
 module Data.Sectile.Runners
   ( -- * Runners
     renderSegment,
@@ -18,6 +8,8 @@ where
 import qualified Data.ByteString.Builder as B
 import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
+import Control.Monad.State (evalState)
+import qualified Data.HashMap.Strict as HashMap
 
 -- | Render a segment to a 'B.Builder' using the given terminal capabilities.
 --
@@ -34,7 +26,7 @@ import Data.Sectile.Types
 -- >   output <- renderSegment Colour.With8Colours (string "Hello")
 -- >   B.hPutBuilder stdout output
 renderSegment :: (Functor m) => Colour.TerminalCapabilities -> Segment m -> m B.Builder
-renderSegment t s = Colour.renderChunksUtf8BSBuilder t . (.rendered) . ($ Colour.noStyle) <$> s.runSegment
+renderSegment t s = Colour.renderChunksUtf8BSBuilder t . (.rendered) . (`evalState` Env Colour.noStyle HashMap.empty) <$> s.runSegment
 
 -- | Render an explanation tree for a segment, useful for debugging.
 --
@@ -52,7 +44,7 @@ renderSegment t s = Colour.renderChunksUtf8BSBuilder t . (.rendered) . ($ Colour
 -- >   output <- explainSegment Colour.With8Colours (string "test")
 -- >   B.hPutBuilder stdout output
 explainSegment :: (Functor m) => Colour.TerminalCapabilities -> Segment m -> m B.Builder
-explainSegment t s = withFormat . ($ Colour.noStyle) <$> s.runSegment
+explainSegment t s = withFormat . (`evalState` Env Colour.noStyle HashMap.empty) <$> s.runSegment
   where
     withFormat fmt =
       go 0 $ fmt.explain $ Colour.renderChunksUtf8BSBuilder t
