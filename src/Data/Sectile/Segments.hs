@@ -51,7 +51,7 @@ string txt =
             DetailList $
               [ DetailPlain "Type: string",
                 DetailPlain $ "Value: " <> T.encodeUtf8Builder txt,
-                DetailPlain $ "Style: " <> T.encodeUtf8Builder (T.pack $ show currentSt) <> " -> " <> T.encodeUtf8Builder (T.pack $ show finalStyle),
+                DetailPlain $ "Style: " <> f [Colour.Chunk (T.pack $ show currentSt) currentSt] <> " -> " <> f [Colour.Chunk (T.pack $ show finalStyle) finalStyle],
                 DetailPlain $ "Rendered: " <> f rendered
               ]
                 <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
@@ -105,7 +105,7 @@ sh (Name name) cmd env =
                 DetailPlain "Type: sh",
                 DetailPlain $ "Command: " <> T.encodeUtf8Builder (T.pack cmd),
                 DetailPlain $ "STDOUT: " <> T.encodeUtf8Builder stdout,
-                DetailPlain $ "Style: " <> T.encodeUtf8Builder (T.pack $ show currentSt) <> " -> " <> T.encodeUtf8Builder (T.pack $ show finalStyle),
+                DetailPlain $ "Style: " <> f [Colour.Chunk (T.pack $ show currentSt) currentSt] <> " -> " <> f [Colour.Chunk (T.pack $ show finalStyle) finalStyle],
                 DetailPlain $ "Rendered: " <> f rendered
               ]
                 <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
@@ -134,7 +134,7 @@ time (Name name) format =
                 DetailPlain "Type: time",
                 DetailPlain $ "Format: " <> T.encodeUtf8Builder (T.pack format),
                 DetailPlain $ "Formatted: " <> T.encodeUtf8Builder txt,
-                DetailPlain $ "Style: " <> T.encodeUtf8Builder (T.pack $ show currentSt) <> " -> " <> T.encodeUtf8Builder (T.pack $ show finalStyle),
+                DetailPlain $ "Style: " <> f [Colour.Chunk (T.pack $ show currentSt) currentSt] <> " -> " <> f [Colour.Chunk (T.pack $ show finalStyle) finalStyle],
                 DetailPlain $ "Rendered: " <> f rendered
               ]
                 <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])

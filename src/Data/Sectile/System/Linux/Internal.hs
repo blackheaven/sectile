@@ -38,7 +38,7 @@ mkFormatted name typeName txt extraFields = do
           [ DetailPlain $ "Name: " <> name,
             DetailPlain $ "Type: " <> T.encodeUtf8Builder typeName,
             DetailPlain $ "Value: " <> T.encodeUtf8Builder txt,
-            DetailPlain $ "Style: " <> T.encodeUtf8Builder (T.pack $ show currentSt) <> " -> " <> T.encodeUtf8Builder (T.pack $ show finalStyle),
+            DetailPlain $ "Style: " <> f [Colour.Chunk (T.pack $ show currentSt) currentSt] <> " -> " <> f [Colour.Chunk (T.pack $ show finalStyle) finalStyle],
             DetailPlain $ "Rendered: " <> f rendered
           ]
             <> map (\(k, v) -> DetailPlain $ T.encodeUtf8Builder k <> ": " <> T.encodeUtf8Builder v) extraFields
