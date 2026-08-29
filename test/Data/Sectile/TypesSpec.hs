@@ -46,3 +46,26 @@ spec = do
         [ ("parent", Aeson.String "pv")
         , ("test.child", Aeson.String "cv")
         ]
+
+  describe "Binding helpers" $ do
+    it "unitBindings generates correctly for KB" $ do
+      let bnds = unitBindings "B" "disk" 2048
+      bnds `shouldBe` HashMap.fromList
+        [ ("disk", Aeson.String "2.0KiB")
+        , ("disk.raw", Aeson.Number 2048)
+        , ("disk.value.full", Aeson.String "2.0")
+        , ("disk.value.round", Aeson.String "2")
+        , ("disk.unit.full", Aeson.String "KiB")
+        , ("disk.unit.base", Aeson.String "B")
+        , ("disk.unit.prefix", Aeson.String "Ki")
+        ]
+
+    it "percentBindings generates correctly" $ do
+      let bnds = percentBindings "usage" 0.426
+      bnds `shouldBe` HashMap.fromList
+        [ ("usage", Aeson.String "42.6%")
+        , ("usage.raw", Aeson.Number (realToFrac (0.426 :: Double)))
+        , ("usage.absolute", Aeson.String "0.43")
+        , ("usage.percent.full", Aeson.String "42.6")
+        , ("usage.percent.round", Aeson.String "43")
+        ]

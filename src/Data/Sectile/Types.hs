@@ -1,13 +1,3 @@
--- |
--- Module        : Data.Sectile.Types
--- Copyright     : Gautier DI FOLCO
--- License       : ISC
---
--- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
--- Stability     : Stable
--- Portability   : Portable
---
--- Core types for the composable status line builder.
 module Data.Sectile.Types
   ( -- * Main types
     Segment (..),
@@ -17,6 +7,7 @@ module Data.Sectile.Types
 
     -- * Segment builder types
     Name (..),
+    Unit (..),
 
     -- * Runner type
     SegmentsRunner,
@@ -28,11 +19,16 @@ module Data.Sectile.Types
     appendBindings,
     updateBindings,
     scopeBindings,
+
+    -- * Binding helpers
+    unitBindings,
+    percentBindings,
   )
 where
 
 import Control.Monad.State (State, gets, modify)
 import qualified Data.Aeson as Aeson
+import Data.Bifunctor (Bifunctor (first))
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as LBS
 import Data.HashMap.Strict (HashMap)
@@ -40,7 +36,9 @@ import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Sectile.Tmux as Colour
 import Data.String (IsString)
 import Data.Text (Text)
+import qualified Data.Text as T
 import qualified Data.Text.Encoding as Text.Encoding
+import Numeric (showFFloat)
 
 -- | A composable segment of a status line.
 --
@@ -110,7 +108,12 @@ data Detail a
 -- > myName = "my-segment"
 newtype Name
   = Name {unName :: B.Builder}
-  deriving newtype (IsString)
+  deriving newtype (IsString, Semigroup, Monoid)
+
+-- | A unit for a segment, used for binding helpers.
+newtype Unit
+  = Unit {unUnit :: Text}
+  deriving newtype (IsString, Eq, Show)
 
 -- | A strategy for running multiple segments.
 --
@@ -152,7 +155,7 @@ appendBindings newBindings = updateBindings (HashMap.union newBindings)
 scopeBindings :: Name -> State Env a -> State Env a
 scopeBindings (Name nameBuilder) action = do
   let prefix = Text.Encoding.decodeUtf8 (LBS.toStrict (B.toLazyByteString nameBuilder)) <> "."
-  let mapKeys f hm = HashMap.fromList $ fmap (\(k, v) -> (f k, v)) (HashMap.toList hm)
+      mapKeys f hm = HashMap.fromList $ first f <$> HashMap.toList hm
   oldBindings <- gets bindings
   modify (\env -> env {bindings = HashMap.empty})
   result <- action
@@ -160,3 +163,39 @@ scopeBindings (Name nameBuilder) action = do
   let prefixedChildBindings = mapKeys (prefix <>) childBindings
   modify (\env -> env {bindings = HashMap.union prefixedChildBindings oldBindings})
   pure result
+
+unitBindings :: Unit -> Name -> Double -> HashMap Text Aeson.Value
+unitBindings (Unit base) (Name nameBuilder) val =
+  HashMap.fromList
+    [ (nameT, Aeson.String (full <> prefix <> base)),
+      (nameT <> ".raw", Aeson.Number (realToFrac val)),
+      (nameT <> ".value.full", Aeson.String full),
+      (nameT <> ".value.round", Aeson.String (T.pack $ showFFloat (Just 0) scaled "")),
+      (nameT <> ".unit.full", Aeson.String (prefix <> base)),
+      (nameT <> ".unit.base", Aeson.String base),
+      (nameT <> ".unit.prefix", Aeson.String prefix)
+    ]
+  where
+    nameT = Text.Encoding.decodeUtf8 $ LBS.toStrict $ B.toLazyByteString nameBuilder
+    full = T.pack $ showFFloat (Just 1) scaled ""
+    (prefix, scaled)
+      | abs val >= 1024 ** 6 = ("Ei", val / (1024 ** 6))
+      | abs val >= 1024 ** 5 = ("Pi", val / (1024 ** 5))
+      | abs val >= 1024 ** 4 = ("Ti", val / (1024 ** 4))
+      | abs val >= 1024 ** 3 = ("Gi", val / (1024 ** 3))
+      | abs val >= 1024 ** 2 = ("Mi", val / (1024 ** 2))
+      | abs val >= 1024 = ("Ki", val / 1024)
+      | otherwise = ("", val)
+
+percentBindings :: Name -> Double -> HashMap Text Aeson.Value
+percentBindings (Name nameBuilder) val =
+  HashMap.fromList
+    [ (nameT, Aeson.String (full <> "%")),
+      (nameT <> ".raw", Aeson.Number (realToFrac val)),
+      (nameT <> ".absolute", Aeson.String (T.pack $ showFFloat (Just 2) val "")),
+      (nameT <> ".percent.full", Aeson.String full),
+      (nameT <> ".percent.round", Aeson.String (T.pack $ showFFloat (Just 0) (val * 100) ""))
+    ]
+  where
+    nameT = Text.Encoding.decodeUtf8 $ LBS.toStrict $ B.toLazyByteString nameBuilder
+    full = T.pack $ showFFloat (Just 1) (val * 100) ""

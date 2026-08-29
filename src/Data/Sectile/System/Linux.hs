@@ -1,16 +1,3 @@
--- |
--- Module        : Data.Sectile.System.Linux
--- Copyright     : Gautier DI FOLCO
--- License       : ISC
---
--- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
--- Stability     : Stable
--- Portability   : Linux
---
--- Linux-specific system monitoring segments.
---
--- These segments read from @\/proc@ filesystem entries and are only
--- supported on Linux. On failure, each displays @"Error on <name>"@.
 module Data.Sectile.System.Linux
   ( -- * System segments
     uptime,
@@ -27,7 +14,11 @@ module Data.Sectile.System.Linux
 where
 
 import qualified Control.Exception as Exception
+import Control.Monad.State (State)
+import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Builder as B
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (mapMaybe)
 import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
@@ -36,12 +27,11 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import qualified Data.Text.Read as T
+import qualified Data.Time.Clock.POSIX as POSIX
 import Numeric (showFFloat)
+import qualified System.Directory as Dir
 import qualified System.Exit as Exit
 import qualified System.Process as Process
-import qualified Data.Time.Clock.POSIX as POSIX
-import qualified System.Directory as Dir
-import Control.Monad.State (State)
 
 -- | Display system uptime by reading @\/proc\/uptime@.
 --
@@ -55,16 +45,18 @@ import Control.Monad.State (State)
 -- > uptimeSegment = uptime "uptime"
 -- > -- Renders e.g. "3d 2h 15m"
 uptime :: Name -> Segment IO
-uptime (Name name) =
+uptime name@(Name nameB) =
   Segment $ do
     result <- tryReadFile "/proc/uptime"
-    let txt = case result of
+    let (txt, bnds) = case result of
           Right content ->
-            case parseUptime content of
-              Just formatted -> formatted
-              Nothing -> errMsg name
-          Left _ -> errMsg name
-    pure $ mkFormatted name "uptime" txt []
+            case parseUptime name content of
+              Just (formatted, b) -> (formatted, b)
+              Nothing -> (errMsg nameB, HashMap.empty)
+          Left _ -> (errMsg nameB, HashMap.empty)
+    pure $ do
+      _ <- appendBindings bnds
+      mkFormatted nameB "uptime" txt []
 
 -- | Display memory usage by reading @\/proc\/meminfo@.
 --
@@ -78,16 +70,18 @@ uptime (Name name) =
 -- > memSegment = memory "mem"
 -- > -- Renders e.g. "8.2GiB / 15.6GiB (52%)"
 memory :: Name -> Segment IO
-memory (Name name) =
+memory name@(Name nameB) =
   Segment $ do
     result <- tryReadFile "/proc/meminfo"
-    let txt = case result of
+    let (txt, bnds) = case result of
           Right content ->
-            case parseMeminfo content of
-              Just formatted -> formatted
-              Nothing -> errMsg name
-          Left _ -> errMsg name
-    pure $ mkFormatted name "memory" txt []
+            case parseMeminfo name content of
+              Just (formatted, b) -> (formatted, b)
+              Nothing -> (errMsg nameB, HashMap.empty)
+          Left _ -> (errMsg nameB, HashMap.empty)
+    pure $ do
+      _ <- appendBindings bnds
+      mkFormatted nameB "memory" txt []
 
 -- | Display system load averages by reading @\/proc\/loadavg@.
 --
@@ -101,16 +95,18 @@ memory (Name name) =
 -- > loadSegment = load "load"
 -- > -- Renders e.g. "1.59 1.29 1.39"
 load :: Name -> Segment IO
-load (Name name) =
+load name@(Name nameB) =
   Segment $ do
     result <- tryReadFile "/proc/loadavg"
-    let txt = case result of
+    let (txt, bnds) = case result of
           Right content ->
-            case parseLoadavg content of
-              Just formatted -> formatted
-              Nothing -> errMsg name
-          Left _ -> errMsg name
-    pure $ mkFormatted name "load" txt []
+            case parseLoadavg name content of
+              Just (formatted, b) -> (formatted, b)
+              Nothing -> (errMsg nameB, HashMap.empty)
+          Left _ -> (errMsg nameB, HashMap.empty)
+    pure $ do
+      _ <- appendBindings bnds
+      mkFormatted nameB "load" txt []
 
 -- | Display CPU usage percentage by reading @\/proc\/stat@.
 --
@@ -124,16 +120,18 @@ load (Name name) =
 -- > cpuSegment = cpu "cpu"
 -- > -- Renders e.g. "5.6%"
 cpu :: Name -> Segment IO
-cpu (Name name) =
+cpu name@(Name nameB) =
   Segment $ do
     result <- tryReadFile "/proc/stat"
-    let txt = case result of
+    let (txt, bnds) = case result of
           Right content ->
-            case parseCpuUsage content of
-              Just formatted -> formatted
-              Nothing -> errMsg name
-          Left _ -> errMsg name
-    pure $ mkFormatted name "cpu" txt []
+            case parseCpuUsage name content of
+              Just (formatted, b) -> (formatted, b)
+              Nothing -> (errMsg nameB, HashMap.empty)
+          Left _ -> (errMsg nameB, HashMap.empty)
+    pure $ do
+      _ <- appendBindings bnds
+      mkFormatted nameB "cpu" txt []
 
 -- | Display disk usage for a given mount point.
 --
@@ -149,67 +147,73 @@ cpu (Name name) =
 -- > diskSegment = disk "disk" "/"
 -- > -- Renders e.g. "\/  1.5TiB / 1.8TiB (88%)"
 disk :: Name -> FilePath -> Segment IO
-disk (Name name) mountPoint =
+disk name@(Name nameB) mountPoint =
   Segment $ do
-    (exitCode, out, _) <- Process.readProcessWithExitCode "df" ["--output=avail,pcent", "-B1024", mountPoint] ""
-    let txt = case exitCode of
+    (exitCode, out, _) <- Process.readProcessWithExitCode "df" ["--output=size,used,avail,pcent", "-B1024", mountPoint] ""
+    let (txt, bnds) = case exitCode of
           Exit.ExitSuccess ->
-            case parseDiskUsage (T.pack out) of
-              Just formatted -> formatted
-              Nothing -> errMsg name
-          _ -> errMsg name
-    pure $ mkFormatted name "disk" txt [("MountPoint", T.pack mountPoint)]
+            case parseDiskUsage name (T.pack out) of
+              Just (formatted, b) -> (formatted, b)
+              Nothing -> (errMsg nameB, HashMap.empty)
+          _ -> (errMsg nameB, HashMap.empty)
+    pure $ do
+      _ <- appendBindings bnds
+      mkFormatted nameB "disk" txt [("MountPoint", T.pack mountPoint)]
 
 -- | Display network speed for a given list of interfaces.
 networkStats :: Name -> [T.Text] -> NetDirection -> Segment IO
-networkStats (Name name) ifaces direction = Segment $ do
+networkStats name@(Name nameB) ifaces direction = Segment $ do
   contentRes <- tryReadFile "/proc/net/dev"
   case contentRes of
-    Left _ -> pure $ mkFormatted name typeName (errMsg name) []
+    Left _ -> pure $ mkFormatted nameB typeName (errMsg nameB) []
     Right content -> do
       let statsList = mapMaybe (\iface -> parseNetDevBytes iface direction content) ifaces
       case statsList of
-        [] -> pure $ mkFormatted name typeName (errMsg name) []
+        [] -> pure $ mkFormatted nameB typeName (errMsg nameB) []
         _ -> do
           let totalBytes = sum statsList
           now <- POSIX.getPOSIXTime
           let nowMs = round (now * 1000) :: Int
-          
-          sessionOutRes <- (Right <$> Process.readProcessWithExitCode "tmux" ["display-message", "-p", "#S"] "")
-                           `Exception.catch` (\(_ :: IOError) -> pure $ Left ())
+
+          sessionOutRes <-
+            (Right <$> Process.readProcessWithExitCode "tmux" ["display-message", "-p", "#S"] "")
+              `Exception.catch` (\(_ :: IOError) -> pure $ Left ())
           let session = case sessionOutRes of
-                          Right (Exit.ExitSuccess, out, _) -> T.unpack (T.strip (T.pack out))
-                          _ -> "default"
-          
-          let segName = T.unpack $ TL.toStrict $ TLE.decodeUtf8 $ B.toLazyByteString name
+                Right (Exit.ExitSuccess, out, _) -> T.unpack (T.strip (T.pack out))
+                _ -> "default"
+
+          let segName = T.unpack $ TL.toStrict $ TLE.decodeUtf8 $ B.toLazyByteString nameB
           let memFile = "/tmp/tmux-net-speeds-mem-" <> session <> "-" <> segName
-          
+
           fileExists <- Dir.doesFileExist memFile
-          rate <- if fileExists
-            then do
-              fileContent <- tryReadFile memFile
-              case fileContent of
-                Right fc -> do
-                  case T.words (T.strip fc) of
-                    [tsStr, bytesStr] -> do
-                      case (readInt tsStr, readInt bytesStr) of
-                        (Just tsPrev, Just bytesPrev) -> do
-                          let dt = nowMs - tsPrev
-                          if dt > 0
-                            then pure $ Just $ (totalBytes - bytesPrev) * 1000 `div` dt
-                            else pure Nothing
-                        _ -> pure Nothing
-                    _ -> pure Nothing
-                Left _ -> pure Nothing
-            else pure Nothing
-          
+          rate <-
+            if fileExists
+              then do
+                fileContent <- tryReadFile memFile
+                case fileContent of
+                  Right fc -> do
+                    case T.words (T.strip fc) of
+                      [tsStr, bytesStr] -> do
+                        case (readInt tsStr, readInt bytesStr) of
+                          (Just tsPrev, Just bytesPrev) -> do
+                            let dt = nowMs - tsPrev
+                            if dt > 0
+                              then pure $ Just $ (totalBytes - bytesPrev) * 1000 `div` dt
+                              else pure Nothing
+                          _ -> pure Nothing
+                      _ -> pure Nothing
+                  Left _ -> pure Nothing
+              else pure Nothing
+
           _ <- tryWriteFile memFile (T.pack (show nowMs) <> " " <> T.pack (show totalBytes))
-          
-          let txt = case rate of
-                Just r -> formatKiB (r `div` 1024) <> "/s"
-                Nothing -> "  -  B/s"
-          
-          pure $ mkFormatted name typeName txt [("Interfaces", T.intercalate "," ifaces)]
+
+          let (txt, bnds) = case rate of
+                Just r -> (formatKiB (r `div` 1024) <> "/s", unitBindings "B/s" name (fromIntegral r))
+                Nothing -> ("  -  B/s", unitBindings "B/s" name 0)
+
+          pure $ do
+            _ <- appendBindings bnds
+            mkFormatted nameB typeName txt [("Interfaces", T.intercalate "," ifaces)]
   where
     typeName = case direction of
       NetTransmit -> "networkUp"
@@ -225,11 +229,11 @@ networkDown name ifaces = networkStats name ifaces NetReceive
 
 -- | Display battery capacity and status by reading @\/sys\/class\/power_supply\/BAT*@.
 battery :: Name -> String -> Segment IO
-battery (Name name) bat =
+battery name@(Name nameB) bat =
   Segment $ do
     capRes <- tryReadFile ("/sys/class/power_supply/" <> bat <> "/capacity")
     statRes <- tryReadFile ("/sys/class/power_supply/" <> bat <> "/status")
-    let txt = case (capRes, statRes) of
+    let (txt, bnds) = case (capRes, statRes) of
           (Right cap, Right stat) ->
             let capT = T.strip cap
                 statT = T.strip stat
@@ -238,33 +242,40 @@ battery (Name name) bat =
                   "Discharging" -> "BAT"
                   "Full" -> "FULL"
                   _ -> "UNK"
-             in prefix <> " " <> capT <> "%"
-          _ -> errMsg name
-    pure $ mkFormatted name "battery" txt [("Battery", T.pack bat)]
+                val = case readDouble capT of
+                  Just v -> v / 100
+                  Nothing -> 0
+             in (prefix <> " " <> capT <> "%", percentBindings name val)
+          _ -> (errMsg nameB, HashMap.empty)
+    pure $ do
+      _ <- appendBindings bnds
+      mkFormatted nameB "battery" txt [("Battery", T.pack bat)]
 
 -- | Display system temperature by reading @\/sys\/class\/thermal\/thermal_zone*\/temp@.
 thermal :: Name -> String -> Segment IO
-thermal (Name name) zone =
+thermal name@(Name nameB) zone =
   Segment $ do
     res <- tryReadFile ("/sys/class/thermal/" <> zone <> "/temp")
-    let txt = case res of
-          Right tempStr -> case readInt (T.strip tempStr) of
-            Just temp -> T.pack (show (temp `div` 1000)) <> "C"
-            Nothing -> errMsg name
-          Left _ -> errMsg name
-    pure $ mkFormatted name "thermal" txt [("Zone", T.pack zone)]
+    let (txt, bnds) = case res of
+          Right tempStr -> case readDouble (T.strip tempStr) of
+            Just temp -> (T.pack (show (round (temp / 1000) :: Int)) <> "C", unitBindings "C" name (temp / 1000))
+            Nothing -> (errMsg nameB, HashMap.empty)
+          Left _ -> (errMsg nameB, HashMap.empty)
+    pure $ do
+      _ <- appendBindings bnds
+      mkFormatted nameB "thermal" txt [("Zone", T.pack zone)]
 
 -- | Display WiFi link quality by reading @\/proc\/net\/wireless@.
 wifi :: Name -> String -> Segment IO
-wifi (Name name) iface =
+wifi (Name nameB) iface =
   Segment $ do
     res <- tryReadFile "/proc/net/wireless"
     let txt = case res of
           Right content -> case parseWifi iface content of
             Just formatted -> formatted
-            Nothing -> errMsg name
-          Left _ -> errMsg name
-    pure $ mkFormatted name "wifi" txt [("Interface", T.pack iface)]
+            Nothing -> errMsg nameB
+          Left _ -> errMsg nameB
+    pure $ mkFormatted nameB "wifi" txt [("Interface", T.pack iface)]
 
 -- Internal helpers
 
@@ -278,6 +289,7 @@ errMsg name = "Error on " <> TL.toStrict (TLE.decodeUtf8 (B.toLazyByteString nam
 mkFormatted :: B.Builder -> T.Text -> T.Text -> [(T.Text, T.Text)] -> State Env Formatted
 mkFormatted name typeName txt extraFields = do
   currentSt <- currentStyle
+  bnds <- currentBindings
   let (finalStyle, rendered) = Colour.parseAnsiChunks currentSt txt
       explain f =
         DetailList $
@@ -287,27 +299,32 @@ mkFormatted name typeName txt extraFields = do
             DetailPlain $ "Rendered: " <> f rendered
           ]
             <> map (\(k, v) -> DetailPlain $ T.encodeUtf8Builder k <> ": " <> T.encodeUtf8Builder v) extraFields
+            <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- HashMap.toList bnds]])
   _ <- updateStyle (const finalStyle)
   pure Formatted {..}
+
+-- | Try to read a file, catching any IOException.
 tryReadFile :: FilePath -> IO (Either IOError T.Text)
 tryReadFile path =
   (Right . T.pack <$> readFile path)
     `Exception.catch` (\(e :: IOError) -> pure $ Left e)
 
 -- | Parse /proc/uptime: "12345.67 89012.34" -> "Xd Xh Xm"
-parseUptime :: T.Text -> Maybe T.Text
-parseUptime content = case T.double (T.strip content) of
+parseUptime :: Name -> T.Text -> Maybe (T.Text, HashMap.HashMap T.Text Aeson.Value)
+parseUptime name content = case T.double (T.strip content) of
   Right (seconds :: Double, _) ->
     let totalMinutes = floor seconds `div` 60 :: Int
         minutes = totalMinutes `mod` 60
         hours = (totalMinutes `div` 60) `mod` 24
         days = totalMinutes `div` (60 * 24)
-     in Just $ T.pack (show days) <> "d " <> T.pack (show hours) <> "h " <> T.pack (show minutes) <> "m"
+        txt = T.pack (show days) <> "d " <> T.pack (show hours) <> "h " <> T.pack (show minutes) <> "m"
+        bnds = unitBindings "s" name seconds
+     in Just (txt, bnds)
   Left _ -> Nothing
 
 -- | Parse /proc/meminfo to extract MemTotal, MemAvailable.
-parseMeminfo :: T.Text -> Maybe T.Text
-parseMeminfo content =
+parseMeminfo :: Name -> T.Text -> Maybe (T.Text, HashMap.HashMap T.Text Aeson.Value)
+parseMeminfo (Name nameB) content =
   let lns = T.lines content
       findField key = case filter (T.isPrefixOf key) lns of
         (l : _) -> case T.decimal (T.strip $ T.drop 1 $ T.dropWhile (/= ':') l) of
@@ -315,54 +332,86 @@ parseMeminfo content =
           Left _ -> Nothing
         [] -> Nothing
    in case (findField "MemTotal:", findField "MemAvailable:") of
-        (Just total, Just avail) ->
-          let used = total - avail
-              pct = (100 * used) `div` total
-           in Just $
-                formatKiB used
+        (Just totalKB, Just availKB) ->
+          let total = fromIntegral totalKB * 1024 :: Double
+              avail = fromIntegral availKB * 1024 :: Double
+              used = total - avail
+              pct = used / total
+              bnds =
+                unitBindings "B" (Name (nameB <> ".total")) total
+                  <> unitBindings "B" (Name (nameB <> ".used.total")) used
+                  <> percentBindings (Name (nameB <> ".used")) pct
+                  <> unitBindings "B" (Name (nameB <> ".free.total")) avail
+                  <> percentBindings (Name (nameB <> ".free")) (avail / total)
+              txt =
+                formatKiB (round (used / 1024))
                   <> " / "
-                  <> formatKiB total
+                  <> formatKiB (round (total / 1024))
                   <> " ("
-                  <> T.pack (show pct)
+                  <> T.pack (show (round (pct * 100) :: Int))
                   <> "%)"
+           in Just (txt, bnds)
         _ -> Nothing
 
 -- | Parse /proc/loadavg: "1.59 1.29 1.39 3/4059 665034" -> "1.59 1.29 1.39"
-parseLoadavg :: T.Text -> Maybe T.Text
-parseLoadavg content =
+parseLoadavg :: Name -> T.Text -> Maybe (T.Text, HashMap.HashMap T.Text Aeson.Value)
+parseLoadavg (Name nameB) content =
   let ws = T.words (T.strip content)
    in case ws of
-        (l1 : l5 : l15 : _) -> Just $ l1 <> " " <> l5 <> " " <> l15
+        (l1 : l5 : l15 : _) ->
+          case (readDouble l1, readDouble l5, readDouble l15) of
+            (Just n1, Just n5, Just n15) ->
+              let txt = l1 <> " " <> l5 <> " " <> l15
+                  nameT = T.decodeUtf8 (LBS.toStrict (B.toLazyByteString nameB))
+                  bnds =
+                    HashMap.fromList
+                      [ (nameT <> ".1m.raw", Aeson.Number (realToFrac n1)),
+                        (nameT <> ".5m.raw", Aeson.Number (realToFrac n5)),
+                        (nameT <> ".15m.raw", Aeson.Number (realToFrac n15))
+                      ]
+               in Just (txt, bnds)
+            _ -> Nothing
         _ -> Nothing
 
 -- | Parse /proc/stat cpu line to get usage percentage.
-parseCpuUsage :: T.Text -> Maybe T.Text
-parseCpuUsage content =
+parseCpuUsage :: Name -> T.Text -> Maybe (T.Text, HashMap.HashMap T.Text Aeson.Value)
+parseCpuUsage name content =
   let lns = T.lines content
    in case filter (T.isPrefixOf "cpu ") lns of
         (cpuLine : _) ->
           let ws = drop 1 $ T.words cpuLine
-              nums = mapMaybe readInt ws
+              nums = mapMaybe readDouble ws
            in case nums of
                 (user : nice : system : idle : iowait : irq : softirq : steal : _) ->
                   let total = user + nice + system + idle + iowait + irq + softirq + steal
                       busy = total - idle - iowait
-                      pct = (100.0 * fromIntegral busy / fromIntegral total) :: Double
-                   in Just $ T.pack (showFFloat1 pct) <> "%"
+                      pct = busy / total
+                      bnds = percentBindings name pct
+                   in Just (T.pack (showFFloat1 (pct * 100)) <> "%", bnds)
                 _ -> Nothing
         _ -> Nothing
 
--- | Parse disk usage from df --output=size,used,pcent -B1024 output.
-parseDiskUsage :: T.Text -> Maybe T.Text
-parseDiskUsage content =
+-- | Parse disk usage from df --output=size,used,avail,pcent -B1024 output.
+parseDiskUsage :: Name -> T.Text -> Maybe (T.Text, HashMap.HashMap T.Text Aeson.Value)
+parseDiskUsage (Name nameB) content =
   let lns = T.lines content
    in case lns of
         (_ : dataLine : _) ->
           case T.words dataLine of
-            (availT : pcentT : _) ->
-              case (readInt availT) of
-                (Just avail) ->
-                  Just $ formatKiB avail <> " (" <> pcentT <> ")"
+            (sizeT : usedT : availT : pcentT : _) ->
+              case (readDouble sizeT, readDouble usedT, readDouble availT) of
+                (Just sizeKB, Just usedKB, Just availKB) ->
+                  let size = sizeKB * 1024
+                      used = usedKB * 1024
+                      avail = availKB * 1024
+                      bnds =
+                        unitBindings "B" (Name (nameB <> ".total")) size
+                          <> unitBindings "B" (Name (nameB <> ".used.total")) used
+                          <> percentBindings (Name (nameB <> ".used")) (used / size)
+                          <> unitBindings "B" (Name (nameB <> ".free.total")) avail
+                          <> percentBindings (Name (nameB <> ".free")) (avail / size)
+                      txt = formatKiB (round sizeKB) <> " (" <> pcentT <> ")"
+                   in Just (txt, bnds)
                 _ -> Nothing
             _ -> Nothing
         _ -> Nothing
@@ -415,6 +464,12 @@ showFFloat1 x = showFFloat (Just n) x ""
 -- | Read an Int from Text, returning Nothing on failure.
 readInt :: T.Text -> Maybe Int
 readInt t = case T.decimal t of
+  Right (n, _) -> Just n
+  Left _ -> Nothing
+
+-- | Read a Double from Text, returning Nothing on failure.
+readDouble :: T.Text -> Maybe Double
+readDouble t = case T.double t of
   Right (n, _) -> Just n
   Left _ -> Nothing
 

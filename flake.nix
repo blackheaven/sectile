@@ -4,11 +4,6 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-
-    safe-coloured-text = {
-      url = "github:NorfairKing/safe-coloured-text";
-      flake = false;
-    };
   };
 
   outputs =
@@ -21,14 +16,16 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [
-            (import (inputs.safe-coloured-text + "/nix/overlay.nix"))
-          ];
-        };
+        pkgs = import nixpkgs { inherit system; };
 
-        haskellPackages = pkgs.haskellPackages;
+        jailbreakUnbreak =
+          pkg: pkgs.haskell.lib.doJailbreak (pkgs.haskell.lib.dontCheck (pkgs.haskell.lib.unmarkBroken pkg));
+
+        haskellPackages = pkgs.haskellPackages.override {
+          overrides = hself: hsuper: {
+            ede = jailbreakUnbreak hsuper.ede;
+          };
+        };
       in
       rec {
         packages.sectile =

@@ -6,6 +6,8 @@ import Data.Sectile
 import qualified Data.Sectile.Tmux as Colour
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.Aeson as Aeson
+import qualified Data.HashMap.Strict as HashMap
 import Test.Hspec
 
 spec :: Spec
@@ -83,6 +85,20 @@ spec = do
       output <- explainSegment Colour.WithoutColours (string "test")
       let txt = builderToText output
       txt `shouldSatisfy` T.isInfixOf "Type: string"
+
+  describe "reformat" $ do
+    it "reformats output using EDE template" $ do
+      output <- renderSegment Colour.WithoutColours (reformat "[{{ _inner.raw }}]" (string "hello"))
+      builderToText output `shouldBe` "[hello]"
+
+    it "has access to bound variables" $ do
+      let seg = Segment $ do
+            inner <- runSegment (string "hello" :: Segment IO)
+            pure $ do
+              _ <- appendBindings (HashMap.singleton "my_var" (Aeson.String "world"))
+              inner
+      output <- renderSegment Colour.WithoutColours (reformat "{{ my_var }} - {{ _inner.raw }}" seg)
+      builderToText output `shouldBe` "world - hello"
 
 builderToText :: B.Builder -> T.Text
 builderToText = T.decodeUtf8 . BSL.toStrict . B.toLazyByteString

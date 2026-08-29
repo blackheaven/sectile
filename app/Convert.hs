@@ -122,18 +122,22 @@ applyStyle cfg seg =
       getParser "percentage" = parsePercent
       getParser "load" = parseLoad
       getParser _ = const Nothing
+      getGradientSource = \case
+        S.ParseText p -> Style.parseTextGradient (getParser p)
+        S.Scale key -> Style.scaleGradient key
+        S.Ratio k1 k2 -> Style.ratioGradient k1 k2
       withGradFg = case cfg.gradientFg of
         Nothing -> id
-        Just (S.GradientConfig f t p) ->
+        Just (S.GradientConfig f t src) ->
           let S.Colour r1 g1 b1 = f
               S.Colour r2 g2 b2 = t
-           in Style.gradientFg (fromIntegral r1, fromIntegral g1, fromIntegral b1) (fromIntegral r2, fromIntegral g2, fromIntegral b2) (getParser p)
+           in Style.gradientFg (fromIntegral r1, fromIntegral g1, fromIntegral b1) (fromIntegral r2, fromIntegral g2, fromIntegral b2) (getGradientSource src)
       withGradBg = case cfg.gradientBg of
         Nothing -> id
-        Just (S.GradientConfig f t p) ->
+        Just (S.GradientConfig f t src) ->
           let S.Colour r1 g1 b1 = f
               S.Colour r2 g2 b2 = t
-           in Style.gradientBg (fromIntegral r1, fromIntegral g1, fromIntegral b1) (fromIntegral r2, fromIntegral g2, fromIntegral b2) (getParser p)
+           in Style.gradientBg (fromIntegral r1, fromIntegral g1, fromIntegral b1) (fromIntegral r2, fromIntegral g2, fromIntegral b2) (getGradientSource src)
    in withGradBg $ withGradFg $ withItalic $ withBold $ withBg $ withFg $ withTheme seg
 
 -- | Apply a display transformation to a segment.
@@ -148,6 +152,7 @@ applyDisplay = \case
   S.FixedSizeEnd {..} -> Display.fixedSizeEnd (fromIntegral width)
   S.ProgressBar {..} -> Display.progressBar (fromIntegral width)
   S.Marquee {..} -> Display.marquee (fromIntegral width) (fromIntegral tickSeconds)
+  S.Reformat {..} -> Sectile.reformat format
 
 -- | Convert a Dhall colour to a safe-coloured-text colour.
 convertColour :: S.Colour -> Colour.Colour

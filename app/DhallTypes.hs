@@ -21,7 +21,7 @@ module DhallTypes
     ThemeName (..),
 
     -- * Top-level configuration
-    BarConfig (..), GradientConfig(..),
+    BarConfig (..), GradientConfig(..), GradientSourceConfig(..),
   )
 where
 
@@ -39,10 +39,18 @@ data Colour = Colour
 deriving anyclass instance FromDhall Colour
 
 -- | Data for gradient configuration.
+data GradientSourceConfig
+  = ParseText { parser :: Text }
+  | Scale { key :: Text }
+  | Ratio { k1 :: Text, k2 :: Text }
+  deriving stock (Eq, Show, Generic)
+
+deriving anyclass instance FromDhall GradientSourceConfig
+
 data GradientConfig = GradientConfig
   { from :: Colour,
     to :: Colour,
-    parser :: Text
+    source :: GradientSourceConfig
   }
   deriving stock (Eq, Show, Generic)
 
@@ -80,6 +88,7 @@ data DisplayConfig
   | FixedSizeEnd {width :: Natural}
   | ProgressBar {width :: Natural}
   | Marquee {width :: Natural, tickSeconds :: Natural}
+  | Reformat {format :: Text}
   deriving stock (Eq, Show, Generic)
 
 deriving anyclass instance FromDhall DisplayConfig

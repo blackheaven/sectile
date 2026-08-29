@@ -37,24 +37,7 @@
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs",
-        "safe-coloured-text": "safe-coloured-text"
-      }
-    },
-    "safe-coloured-text": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1784903337,
-        "narHash": "sha256-5FCPqh/vyZk2hwdTxS8+JVcP0TOoJ2GVq+XLIC2zQLs=",
-        "owner": "NorfairKing",
-        "repo": "safe-coloured-text",
-        "rev": "b228e0e8dabf628581a56240aefc3e6e1b3694e6",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NorfairKing",
-        "repo": "safe-coloured-text",
-        "type": "github"
+        "nixpkgs": "nixpkgs"
       }
     },
     "systems": {

@@ -10,6 +10,7 @@ module Data.Sectile.Style
 
     -- * Combinators
     warnIf,
+    GradientSource(..), parseTextGradient, scaleGradient, ratioGradient,
     gradientFg,
     gradientBg,
 
@@ -28,6 +29,8 @@ module Data.Sectile.Style
   )
 where
 
+import qualified Data.Aeson as Aeson
+import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
 import qualified Data.Text as T
@@ -141,12 +144,29 @@ warnIf p warnStyle (Segment s) = Segment $ fmap transform s
             }
         else pure formatted
 
+newtype GradientSource = GradientSource (HashMap.HashMap T.Text Aeson.Value -> T.Text -> Maybe Double)
+
+parseTextGradient :: (T.Text -> Maybe Double) -> GradientSource
+parseTextGradient f = GradientSource $ \_ txt -> f txt
+
+scaleGradient :: T.Text -> GradientSource
+scaleGradient key = GradientSource $ \bnds _ ->
+  case HashMap.lookup key bnds of
+    Just (Aeson.Number n) -> Just (realToFrac n)
+    _ -> Nothing
+
+ratioGradient :: T.Text -> T.Text -> GradientSource
+ratioGradient k1 k2 = GradientSource $ \bnds _ ->
+  case (HashMap.lookup k1 bnds, HashMap.lookup k2 bnds) of
+    (Just (Aeson.Number n1), Just (Aeson.Number n2)) | n2 /= 0 -> Just (realToFrac (n1 / n2))
+    _ -> Nothing
+
 -- | Apply a background color gradient based on a parsed value.
 gradientBg ::
   (Functor m) =>
   (Word8, Word8, Word8) ->
   (Word8, Word8, Word8) ->
-  (T.Text -> Maybe Double) ->
+  GradientSource ->
   Segment m ->
   Segment m
 gradientBg =
@@ -160,7 +180,7 @@ gradientFg ::
   (Functor m) =>
   (Word8, Word8, Word8) ->
   (Word8, Word8, Word8) ->
-  (T.Text -> Maybe Double) ->
+  GradientSource ->
   Segment m ->
   Segment m
 gradientFg =
@@ -174,16 +194,19 @@ gradientWith ::
   (Colour.Colour -> Colour.ChunkStyle -> Colour.ChunkStyle) ->
   (Word8, Word8, Word8) ->
   (Word8, Word8, Word8) ->
-  (T.Text -> Maybe Double) ->
+  GradientSource ->
   Segment m ->
   Segment m
-gradientWith applyColor (r1, g1, b1) (r2, g2, b2) parsePct (Segment s) =
+gradientWith applyColor (r1, g1, b1) (r2, g2, b2) source (Segment s) =
   Segment $ fmap transform s
   where
     transform action = do
       formatted <- action
+      bnds <- currentBindings
       let txt = mconcat $ map Colour.chunkText formatted.rendered
-      case parsePct txt of
+      let GradientSource gradFn = source
+      let mPct = gradFn bnds txt
+      case mPct of
         Just pct -> do
           let p = max 0 (min 1 pct)
               r = round $ fromIntegral r1 * (1 - p) + fromIntegral r2 * p

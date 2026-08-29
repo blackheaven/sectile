@@ -1,7 +1,13 @@
 let Colour = { Type = { r : Natural, g : Natural, b : Natural }, default = {=} }
 
+let GradientSourceConfig =
+      < ParseText : { parser : Text }
+      | Scale : { key : Text }
+      | Ratio : { k1 : Text, k2 : Text }
+      >
+
 let GradientConfig =
-      { Type = { from : Colour.Type, to : Colour.Type, parser : Text }
+      { Type = { from : Colour.Type, to : Colour.Type, source : GradientSourceConfig }
       , default = {=}
       }
 
@@ -41,6 +47,7 @@ let DisplayConfig =
           | FixedSizeEnd : { width : Natural }
           | ProgressBar : { width : Natural }
           | Marquee : { width : Natural, tickSeconds : Natural }
+          | Reformat : { format : Text }
           >
       , default = {=}
       }
@@ -91,6 +98,7 @@ let BarConfig =
       }
 
 in  { Colour
+    , GradientSourceConfig
     , GradientConfig
     , StyleConfig
     , DisplayConfig
