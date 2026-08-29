@@ -38,6 +38,16 @@ library
     Data.Sectile.Segments
     Data.Sectile.Style
     Data.Sectile.System.Linux
+    Data.Sectile.System.Linux.Battery
+    Data.Sectile.System.Linux.Cpu
+    Data.Sectile.System.Linux.Disk
+    Data.Sectile.System.Linux.Internal
+    Data.Sectile.System.Linux.Load
+    Data.Sectile.System.Linux.Memory
+    Data.Sectile.System.Linux.Network
+    Data.Sectile.System.Linux.Thermal
+    Data.Sectile.System.Linux.Uptime
+    Data.Sectile.System.Linux.Wifi
     Data.Sectile.Themes
     Data.Sectile.Tmux
     Data.Sectile.Types
