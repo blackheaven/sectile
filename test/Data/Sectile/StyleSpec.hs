@@ -17,7 +17,7 @@ spec = do
       let result = between (string "[") (string "]") [string "a"]
       output <-
         renderSegment Colour.WithoutColours $
-          row mapM "test" result
+          row mapM Isolating "test" result
       builderToText output `shouldBe` "[a]"
 
   describe "changeStyle" $ do

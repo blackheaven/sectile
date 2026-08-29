@@ -29,19 +29,19 @@ spec = do
     it "concatenates segments" $ do
       output <-
         renderSegment Colour.WithoutColours $
-          row mapM "test" [string "a", string "b", string "c"]
+          row mapM Isolating "test" [string "a", string "b", string "c"]
       builderToText output `shouldBe` "abc"
 
     it "handles empty segment list" $ do
       output <-
         renderSegment Colour.WithoutColours $
-          row mapM "empty" []
+          row mapM Isolating "empty" []
       builderToText output `shouldBe` ""
 
     it "handles single segment" $ do
       output <-
         renderSegment Colour.WithoutColours $
-          row mapM "single" [string "only"]
+          row mapM Isolating "single" [string "only"]
       builderToText output `shouldBe` "only"
 
   describe "between" $ do
@@ -49,14 +49,14 @@ spec = do
       let segments = between (string "[") (string "]") [string "a", string "b"]
       output <-
         renderSegment Colour.WithoutColours $
-          row mapM "wrapped" segments
+          row mapM Isolating "wrapped" segments
       builderToText output `shouldBe` "[ab]"
 
     it "works with empty inner list" $ do
       let segments = between (string "<") (string ">") []
       output <-
         renderSegment Colour.WithoutColours $
-          row mapM "empty-wrapped" segments
+          row mapM Isolating "empty-wrapped" segments
       builderToText output `shouldBe` "<>"
 
   describe "sh" $ do

@@ -7,6 +7,7 @@ import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (mapMaybe)
+import Data.Sectile.System.Linux.Internal
 import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
 import qualified Data.Text as T
@@ -19,7 +20,6 @@ import Numeric (showFFloat)
 import qualified System.Directory as Dir
 import qualified System.Exit as Exit
 import qualified System.Process as Process
-import Data.Sectile.System.Linux.Internal
 
 -- | Display disk usage for a given mount point.
 --

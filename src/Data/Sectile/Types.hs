@@ -8,6 +8,7 @@ module Data.Sectile.Types
     -- * Segment builder types
     Name (..),
     Unit (..),
+    Scoping (..),
 
     -- * Runner type
     SegmentsRunner,
@@ -114,6 +115,12 @@ newtype Name
 newtype Unit
   = Unit {unUnit :: Text}
   deriving newtype (IsString, Eq, Show)
+
+-- | Scope or propagate bindings
+data Scoping
+  = Isolating
+  | Propagating
+  deriving stock (Eq, Show)
 
 -- | A strategy for running multiple segments.
 --

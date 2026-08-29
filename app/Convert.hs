@@ -22,11 +22,11 @@ import qualified Optics.Core as Optics
 convertBar :: S.BarConfig -> [Sectile.Segment IO]
 convertBar cfg =
   let groupRows [] = []
-      groupRows (x:xs) = case x.row of
+      groupRows (x : xs) = case x.row of
         Nothing -> convertNode x : groupRows xs
         Just r ->
-          let (rowNodes, rest) = span (\n -> n.row == Just r) (x:xs)
-           in Sectile.row mapConcurrently (mkName (T.pack $ "row-" ++ show r)) (map convertNode rowNodes) : groupRows rest
+          let (rowNodes, rest) = span (\n -> n.row == Just r) (x : xs)
+           in Sectile.row mapConcurrently Sectile.Isolating (mkName (T.pack $ "row-" ++ show r)) (map convertNode rowNodes) : groupRows rest
       segs = groupRows cfg.segments
    in case cfg.separator of
         Nothing -> segs
@@ -38,13 +38,13 @@ convertBar cfg =
 convertNode :: S.SegmentNode -> Sectile.Segment IO
 convertNode cfg =
   let seg = convertSegment cfg.segment
-      withDisplay = case cfg.display of
-        Nothing -> seg
-        Just d -> applyDisplay d seg
       withStyle = case cfg.style of
-        Nothing -> withDisplay
-        Just s -> applyStyle s withDisplay
-   in withStyle
+        Nothing -> seg
+        Just s -> applyStyle s seg
+      withDisplay = case cfg.display of
+        Nothing -> withStyle
+        Just d -> applyDisplay d withStyle
+   in withDisplay
 
 -- | Convert a single segment configuration to a library segment.
 convertSegment :: S.Segment -> Sectile.Segment IO
@@ -91,7 +91,7 @@ applyStyle cfg seg =
         case T.splitOn "%" t of
           [] -> Nothing
           [_] -> Nothing
-          (xs:_) ->
+          (xs : _) ->
             let numStr = T.takeWhileEnd (\c -> c == '.' || (c >= '0' && c <= '9')) xs
              in case reads (T.unpack numStr) of
                   [(d, "")] -> Just (d / 100.0)
@@ -114,7 +114,11 @@ applyStyle cfg seg =
         Just (S.Gradient (S.GradientConfig f t src)) ->
           let S.ColourRecord r1 g1 b1 = f
               S.ColourRecord r2 g2 b2 = t
-           in Style.gradient (\col -> Optics.set optic (Just col)) (fromIntegral r1, fromIntegral g1, fromIntegral b1) (fromIntegral r2, fromIntegral g2, fromIntegral b2) (getGradientSource src)
+           in Style.gradient
+                (\col -> Optics.set optic (Just col))
+                (fromIntegral r1, fromIntegral g1, fromIntegral b1)
+                (fromIntegral r2, fromIntegral g2, fromIntegral b2)
+                (getGradientSource src)
 
       withFg = applyColorConfig Style.styleForeground cfg.foreground
       withBg = applyColorConfig Style.styleBackground cfg.background
@@ -137,7 +141,6 @@ applyStyle cfg seg =
       withUnderlining = applyOptic Style.styleUnderlining convertUnderlining cfg.underlining
       withBlinking = applyOptic Style.styleBlinking convertBlinking cfg.blinking
       withHyperlink = applyOptic Style.styleHyperlink id cfg.hyperlink
-
    in withHyperlink $ withBlinking $ withUnderlining $ withConsoleIntensity $ withOverlined $ withConcealed $ withSwap $ withStrikethrough $ withItalic $ withBold $ withBg $ withFg seg
 
 -- | Apply a display transformation to a segment.

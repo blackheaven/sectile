@@ -21,10 +21,13 @@ where
 
 import qualified Control.Exception
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Key as Key
+import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.List as List
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.List as List
+import Data.Maybe (catMaybes)
 import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
 import qualified Data.Text as T
@@ -48,6 +51,7 @@ string txt =
             DetailList $
               [ DetailPlain "Type: string",
                 DetailPlain $ "Value: " <> T.encodeUtf8Builder txt,
+                DetailPlain $ "Style: " <> T.encodeUtf8Builder (T.pack $ show currentSt) <> " -> " <> T.encodeUtf8Builder (T.pack $ show finalStyle),
                 DetailPlain $ "Rendered: " <> f rendered
               ]
                 <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
@@ -55,11 +59,14 @@ string txt =
       pure Formatted {..}
 
 -- | Combine multiple segments into a named row.
-row :: (Monad m) => SegmentsRunner m -> Name -> [Segment m] -> Segment m
-row runSegments name@(Name nameBuilder) ss =
+row :: (Monad m) => SegmentsRunner m -> Scoping -> Name -> [Segment m] -> Segment m
+row runSegments scoping name@(Name nameBuilder) ss =
   Segment $ do
     states <- runSegments (.runSegment) ss
-    pure $ scopeBindings name $ do
+    let wrap = case scoping of
+                 Isolating -> scopeBindings name
+                 Propagating -> id
+    pure $ wrap $ do
       formatteds <- sequence states
       let rendered = concatMap (.rendered) formatteds
           explain :: ([Colour.Chunk] -> B.Builder) -> Detail B.Builder
@@ -98,6 +105,7 @@ sh (Name name) cmd env =
                 DetailPlain "Type: sh",
                 DetailPlain $ "Command: " <> T.encodeUtf8Builder (T.pack cmd),
                 DetailPlain $ "STDOUT: " <> T.encodeUtf8Builder stdout,
+                DetailPlain $ "Style: " <> T.encodeUtf8Builder (T.pack $ show currentSt) <> " -> " <> T.encodeUtf8Builder (T.pack $ show finalStyle),
                 DetailPlain $ "Rendered: " <> f rendered
               ]
                 <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
@@ -126,6 +134,7 @@ time (Name name) format =
                 DetailPlain "Type: time",
                 DetailPlain $ "Format: " <> T.encodeUtf8Builder (T.pack format),
                 DetailPlain $ "Formatted: " <> T.encodeUtf8Builder txt,
+                DetailPlain $ "Style: " <> T.encodeUtf8Builder (T.pack $ show currentSt) <> " -> " <> T.encodeUtf8Builder (T.pack $ show finalStyle),
                 DetailPlain $ "Rendered: " <> f rendered
               ]
                 <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
@@ -165,13 +174,58 @@ reformat format (Segment s) = Segment $ fmap transform s
       formatted <- action
       bnds <- currentBindings
       let rawText = mconcat $ map Colour.chunkText formatted.rendered
-          styleText = T.decodeUtf8 $ LBS.toStrict $ B.toLazyByteString $ Colour.renderChunksUtf8BSBuilder Colour.With24BitColours formatted.rendered
-          incomingStyleText = T.replace "#[default]" "" $ T.decodeUtf8 $ LBS.toStrict $ B.toLazyByteString $ Colour.renderChunksUtf8BSBuilder Colour.With24BitColours [Colour.Chunk "" oldSt]
+          styleText =
+            T.decodeUtf8 $
+              LBS.toStrict $
+                B.toLazyByteString $
+                  Colour.renderChunksUtf8BSBuilder Colour.With24BitColours formatted.rendered
+          incomingStyleText =
+            T.replace "#[default]" "" $
+              T.decodeUtf8 $
+                LBS.toStrict $
+                  B.toLazyByteString $
+                    Colour.renderChunksUtf8BSBuilder Colour.With24BitColours [Colour.Chunk "" oldSt]
+
+          innerSt = case formatted.rendered of
+            (c : _) -> Colour.chunkStyle c
+            [] -> Colour.noStyle
+
+          styleToObj :: T.Text -> Colour.ChunkStyle -> Aeson.Value
+          styleToObj sText st =
+            Aeson.toJSON $
+              HashMap.fromList $
+                [ ("raw" :: T.Text, Aeson.String sText)
+                ]
+                  <> catMaybes
+                    [ (,) "foreground" . Aeson.String . Colour.renderColour <$> Colour.chunkStyleForeground st,
+                      (,) "background" . Aeson.String . Colour.renderColour <$> Colour.chunkStyleBackground st,
+                      (,) "italic" . Aeson.Bool <$> Colour.chunkStyleItalic st,
+                      (,) "strikethrough" . Aeson.Bool <$> Colour.chunkStyleStrikethrough st,
+                      (,) "swapForegroundBackground" . Aeson.Bool <$> Colour.chunkStyleSwapForegroundBackground st,
+                      (,) "concealed" . Aeson.Bool <$> Colour.chunkStyleConcealed st,
+                      (,) "overlined" . Aeson.Bool <$> Colour.chunkStyleOverlined st,
+                      (,) "bold" . Aeson.Bool . (== Colour.BoldIntensity) <$> Colour.chunkStyleConsoleIntensity st,
+                      (,) "dim" . Aeson.Bool . (== Colour.FaintIntensity) <$> Colour.chunkStyleConsoleIntensity st,
+                      (,) "underlined" . Aeson.Bool . (`elem` [Colour.SingleUnderline, Colour.DoubleUnderline]) <$> Colour.chunkStyleUnderlining st,
+                      (,) "blink" . Aeson.Bool . (`elem` [Colour.SlowBlinking, Colour.RapidBlinking]) <$> Colour.chunkStyleBlinking st,
+                      (,) "hyperlink" . Aeson.String <$> Colour.chunkStyleHyperlink st
+                    ]
 
           envObj =
             HashMap.fromList
-              [ ("_inner", Aeson.toJSON (HashMap.fromList [("raw" :: T.Text, Aeson.String rawText), ("style" :: T.Text, Aeson.String styleText)])),
-                ("_incoming", Aeson.toJSON (HashMap.fromList [("_style" :: T.Text, Aeson.String incomingStyleText)]))
+              [ ( "_inner",
+                  Aeson.toJSON $
+                    HashMap.fromList
+                      [ ("raw" :: T.Text, Aeson.String rawText),
+                        ("style" :: T.Text, styleToObj styleText innerSt)
+                      ]
+                ),
+                ( "_incoming",
+                  Aeson.toJSON $
+                    HashMap.fromList
+                      [ ("style" :: T.Text, styleToObj incomingStyleText oldSt)
+                      ]
+                )
               ]
 
           mergedEnv = HashMap.union envObj bnds
@@ -180,7 +234,7 @@ reformat format (Segment s) = Segment $ fmap transform s
         EDE.Failure err -> do
           let (_errStyle, errRendered) = Colour.parseAnsiChunks Colour.noStyle (T.pack $ show err)
           pure (formatted {rendered = errRendered})
-        EDE.Success tmpl -> case EDE.render tmpl mergedEnv of
+        EDE.Success tmpl -> case EDE.render tmpl (nestify mergedEnv) of
           EDE.Failure err -> do
             let (_errStyle, errRendered) = Colour.parseAnsiChunks Colour.noStyle (T.pack $ show err)
             pure (formatted {rendered = errRendered})
@@ -188,3 +242,26 @@ reformat format (Segment s) = Segment $ fmap transform s
             let (newStyle, newRendered) = Colour.parseAnsiChunks oldSt (TL.toStrict renderedText)
             _ <- updateStyle (const newStyle)
             pure (formatted {rendered = newRendered})
+
+    nestify :: HashMap.HashMap T.Text Aeson.Value -> HashMap.HashMap T.Text Aeson.Value
+    nestify flatMap = HashMap.fromList $ map (\(k, v) -> (Key.toText k, v)) $ KeyMap.toList $ List.foldl' insertPath KeyMap.empty (HashMap.toList flatMap)
+      where
+        insertPath :: KeyMap.KeyMap Aeson.Value -> (T.Text, Aeson.Value) -> KeyMap.KeyMap Aeson.Value
+        insertPath obj (key, val) = go obj (T.splitOn "." key) val
+
+        go :: KeyMap.KeyMap Aeson.Value -> [T.Text] -> Aeson.Value -> KeyMap.KeyMap Aeson.Value
+        go obj [] _ = obj
+        go obj [k] val =
+          let k' = Key.fromText k
+           in case KeyMap.lookup k' obj of
+                Just (Aeson.Object _) ->
+                  obj
+                _ ->
+                  KeyMap.insert k' val obj
+        go obj (k : ks) val =
+          let k' = Key.fromText k
+           in case KeyMap.lookup k' obj of
+                Just (Aeson.Object existingObj) ->
+                  KeyMap.insert k' (Aeson.Object (go existingObj ks val)) obj
+                _ ->
+                  KeyMap.insert k' (Aeson.Object (go KeyMap.empty ks val)) obj

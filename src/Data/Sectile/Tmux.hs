@@ -14,6 +14,7 @@ module Data.Sectile.Tmux
     TerminalCapabilities (..),
     renderChunksUtf8BSBuilder,
     parseAnsiChunks,
+    renderColour,
   )
 where
 
@@ -122,19 +123,19 @@ renderChunksUtf8BSBuilder cap chunks = foldMap renderChunk chunks
             then B.byteString (T.encodeUtf8 txt)
             else "#[" <> B.byteString (T.encodeUtf8 $ T.intercalate "," attrs) <> "]" <> B.byteString (T.encodeUtf8 txt) <> "#[default]"
 
-    renderColour :: Colour -> Text
-    renderColour (Colour8 _ Black) = "black"
-    renderColour (Colour8 _ Red) = "red"
-    renderColour (Colour8 _ Green) = "green"
-    renderColour (Colour8 _ Yellow) = "yellow"
-    renderColour (Colour8 _ Blue) = "blue"
-    renderColour (Colour8 _ Magenta) = "magenta"
-    renderColour (Colour8 _ Cyan) = "cyan"
-    renderColour (Colour8 _ White) = "white"
-    renderColour (Colour24Bit r g b) =
-      let hex = pad (showHex r "") <> pad (showHex g "") <> pad (showHex b "")
-       in "#" <> T.pack hex
-
+renderColour :: Colour -> Text
+renderColour (Colour8 _ Black) = "black"
+renderColour (Colour8 _ Red) = "red"
+renderColour (Colour8 _ Green) = "green"
+renderColour (Colour8 _ Yellow) = "yellow"
+renderColour (Colour8 _ Blue) = "blue"
+renderColour (Colour8 _ Magenta) = "magenta"
+renderColour (Colour8 _ Cyan) = "cyan"
+renderColour (Colour8 _ White) = "white"
+renderColour (Colour24Bit r g b) =
+  let hex = pad (showHex r "") <> pad (showHex g "") <> pad (showHex b "")
+   in "#" <> T.pack hex
+  where
     pad s
       | length s == 1 = "0" <> s
       | otherwise = s

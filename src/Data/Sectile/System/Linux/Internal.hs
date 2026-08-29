@@ -4,9 +4,9 @@ import qualified Control.Exception as Exception
 import Control.Monad.State (State)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Builder as B
-import qualified Data.List as List
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.List as List
 import Data.Maybe (mapMaybe)
 import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
@@ -23,7 +23,6 @@ import qualified System.Process as Process
 
 -- Internal helpers
 
-
 -- | Build an error message from a segment name.
 errMsg :: B.Builder -> T.Text
 errMsg name = "Error on " <> TL.toStrict (TLE.decodeUtf8 (B.toLazyByteString name))
@@ -39,6 +38,7 @@ mkFormatted name typeName txt extraFields = do
           [ DetailPlain $ "Name: " <> name,
             DetailPlain $ "Type: " <> T.encodeUtf8Builder typeName,
             DetailPlain $ "Value: " <> T.encodeUtf8Builder txt,
+            DetailPlain $ "Style: " <> T.encodeUtf8Builder (T.pack $ show currentSt) <> " -> " <> T.encodeUtf8Builder (T.pack $ show finalStyle),
             DetailPlain $ "Rendered: " <> f rendered
           ]
             <> map (\(k, v) -> DetailPlain $ T.encodeUtf8Builder k <> ": " <> T.encodeUtf8Builder v) extraFields

@@ -24,6 +24,7 @@ where
 import qualified Control.Lens as Lens
 import qualified Control.Lens.Regex.Text as Regex
 import qualified Data.Char as Char
+import Data.Maybe (listToMaybe)
 import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
 import qualified Data.Text as T
@@ -208,10 +209,11 @@ marquee width tickLenSeg (Segment s) = Segment $ do
               let offset = ticks `mod` len
                   padded = txt <> " " <> txt
                in T.take width (T.drop offset padded)
-    pure formatted
-          { rendered = [Colour.Chunk shifted Colour.noStyle],
-            explain = \renderer -> formatted.explain $ renderer . const [Colour.Chunk shifted Colour.noStyle]
-          }
+    pure
+      formatted
+        { rendered = [Colour.Chunk shifted Colour.noStyle],
+          explain = \renderer -> formatted.explain $ renderer . const [Colour.Chunk shifted Colour.noStyle]
+        }
 
 -- Internal helpers
 
@@ -221,10 +223,11 @@ transformChunks f (Segment s) = Segment $ fmap transform s
   where
     transform g = do
       formatted <- g
-      pure formatted
-            { rendered = f formatted.rendered,
-              explain = \renderer -> formatted.explain $ renderer . f
-            }
+      pure
+        formatted
+          { rendered = f formatted.rendered,
+            explain = \renderer -> formatted.explain $ renderer . f
+          }
 
 -- | Total width of a list of chunks.
 chunksWidth :: [Colour.Chunk] -> Int
@@ -252,7 +255,7 @@ padChunksStart n cs =
   let w = chunksWidth cs
       padding = n - w
    in if padding > 0
-        then mkPadChunk padding : cs
+        then mkPadChunk padding (firstStyle cs) : cs
         else cs
 
 -- | Pad chunks at the end with spaces to reach width n.
@@ -261,16 +264,19 @@ padChunksEnd n cs =
   let w = chunksWidth cs
       padding = n - w
    in if padding > 0
-        then cs <> [mkPadChunk padding]
+        then cs <> [mkPadChunk padding (firstStyle cs)]
         else cs
 
 -- | Create a padding chunk of n spaces.
-mkPadChunk :: Int -> Colour.Chunk
-mkPadChunk n =
+mkPadChunk :: Int -> Colour.ChunkStyle -> Colour.Chunk
+mkPadChunk n style =
   Colour.Chunk
     { Colour.chunkText = T.replicate n " ",
-      Colour.chunkStyle = Colour.noStyle
+      Colour.chunkStyle = style
     }
+
+firstStyle :: [Colour.Chunk] -> Colour.ChunkStyle
+firstStyle = maybe Colour.noStyle Colour.chunkStyle . listToMaybe
 
 -- | Apply regex replacement to chunk text.
 regexReplace :: PCRE.Regex -> (T.Text -> T.Text) -> [Colour.Chunk] -> [Colour.Chunk]

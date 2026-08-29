@@ -4,7 +4,7 @@ import Control.Concurrent.Async (mapConcurrently)
 import Convert (convertBar)
 import qualified Data.ByteString.Builder as B
 import qualified Data.Either.Validation as V
-import Data.Sectile (explainSegment, renderSegment, row)
+import Data.Sectile (explainSegment, renderSegment, row, Scoping(Isolating))
 import qualified Data.Sectile.Tmux as Colour
 import qualified Data.Text.IO as Text.IO
 import qualified Dhall
@@ -24,14 +24,14 @@ main = do
     Render (RenderArgs {..}) -> do
       bar <- Dhall.inputFile (Dhall.auto @BarConfig) configFile
       let segments = convertBar bar
-          status = row mapConcurrently "bar" segments
+          status = row mapConcurrently Isolating "bar" segments
       output <- renderSegment capabilities status
       B.hPutBuilder stdout output
       putStrLn ""
     Explain (RenderArgs {..}) -> do
       bar <- Dhall.inputFile (Dhall.auto @BarConfig) configFile
       let segments = convertBar bar
-          status = row mapConcurrently "bar" segments
+          status = row mapConcurrently Isolating "bar" segments
       output <- explainSegment capabilities status
       B.hPutBuilder stdout output
       putStrLn ""
