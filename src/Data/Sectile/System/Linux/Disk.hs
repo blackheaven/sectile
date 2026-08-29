@@ -67,7 +67,7 @@ parseDiskUsage (Name nameB) content =
                           <> percentBindings (Name (nameB <> ".used")) (used / size)
                           <> unitBindings "B" (Name (nameB <> ".free.total")) avail
                           <> percentBindings (Name (nameB <> ".free")) (avail / size)
-                      txt = formatKiB (round sizeKB) <> " (" <> pcentT <> ")"
+                      txt = formatKiB (round availKB) <> " (" <> T.pack (show (round (avail / size * 100) :: Int)) <> "%)"
                    in Just (txt, bnds)
                 _ -> Nothing
             _ -> Nothing

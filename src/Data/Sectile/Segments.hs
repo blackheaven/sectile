@@ -23,6 +23,7 @@ import qualified Control.Exception
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.List as List
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
@@ -49,7 +50,7 @@ string txt =
                 DetailPlain $ "Value: " <> T.encodeUtf8Builder txt,
                 DetailPlain $ "Rendered: " <> f rendered
               ]
-                <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- HashMap.toList bnds]])
+                <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
       _ <- updateStyle (const finalStyle)
       pure Formatted {..}
 
@@ -99,7 +100,7 @@ sh (Name name) cmd env =
                 DetailPlain $ "STDOUT: " <> T.encodeUtf8Builder stdout,
                 DetailPlain $ "Rendered: " <> f rendered
               ]
-                <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- HashMap.toList bnds]])
+                <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
       _ <- updateStyle (const finalStyle)
       pure Formatted {..}
 
@@ -127,7 +128,7 @@ time (Name name) format =
                 DetailPlain $ "Formatted: " <> T.encodeUtf8Builder txt,
                 DetailPlain $ "Rendered: " <> f rendered
               ]
-                <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- HashMap.toList bnds]])
+                <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
       _ <- updateStyle (const finalStyle)
       pure Formatted {..}
 

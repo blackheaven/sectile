@@ -20,6 +20,7 @@ import qualified System.Directory as Dir
 import qualified System.Exit as Exit
 import qualified System.Process as Process
 import Data.Sectile.System.Linux.Internal
+import GHC.Conc (getNumProcessors)
 
 -- | Display system load averages by reading @\/proc\/loadavg@.
 --
@@ -36,9 +37,10 @@ load :: Name -> Segment IO
 load name@(Name nameB) =
   Segment $ do
     result <- tryReadFile "/proc/loadavg"
+    threads <- getNumProcessors
     let (txt, bnds) = case result of
           Right content ->
-            case parseLoadavg name content of
+            case parseLoadavg threads name content of
               Just (formatted, b) -> (formatted, b)
               Nothing -> (errMsg nameB, HashMap.empty)
           Left _ -> (errMsg nameB, HashMap.empty)
@@ -47,8 +49,8 @@ load name@(Name nameB) =
       mkFormatted nameB "load" txt []
 
 -- | Parse /proc/loadavg: "1.59 1.29 1.39 3/4059 665034" -> "1.59 1.29 1.39"
-parseLoadavg :: Name -> T.Text -> Maybe (T.Text, HashMap.HashMap T.Text Aeson.Value)
-parseLoadavg (Name nameB) content =
+parseLoadavg :: Int -> Name -> T.Text -> Maybe (T.Text, HashMap.HashMap T.Text Aeson.Value)
+parseLoadavg threads (Name nameB) content =
   let ws = T.words (T.strip content)
    in case ws of
         (l1 : l5 : l15 : _) ->
@@ -60,7 +62,8 @@ parseLoadavg (Name nameB) content =
                     HashMap.fromList
                       [ (nameT <> ".1m.raw", Aeson.Number (realToFrac n1)),
                         (nameT <> ".5m.raw", Aeson.Number (realToFrac n5)),
-                        (nameT <> ".15m.raw", Aeson.Number (realToFrac n15))
+                        (nameT <> ".15m.raw", Aeson.Number (realToFrac n15)),
+                        (nameT <> ".threads", Aeson.Number (fromIntegral threads))
                       ]
                in Just (txt, bnds)
             _ -> Nothing

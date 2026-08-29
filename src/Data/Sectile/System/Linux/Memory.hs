@@ -68,10 +68,8 @@ parseMeminfo (Name nameB) content =
                   <> unitBindings "B" (Name (nameB <> ".free.total")) avail
                   <> percentBindings (Name (nameB <> ".free")) (avail / total)
               txt =
-                formatKiB (round (used / 1024))
-                  <> " / "
-                  <> formatKiB (round (total / 1024))
-                  <> " ("
+                T.pack (show (round (used / (1024 * 1024 * 1024)) :: Int))
+                  <> " GiB ("
                   <> T.pack (show (round (pct * 100) :: Int))
                   <> "%)"
            in Just (txt, bnds)

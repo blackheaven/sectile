@@ -4,6 +4,7 @@ import qualified Control.Exception as Exception
 import Control.Monad.State (State)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Builder as B
+import qualified Data.List as List
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (mapMaybe)
@@ -41,7 +42,7 @@ mkFormatted name typeName txt extraFields = do
             DetailPlain $ "Rendered: " <> f rendered
           ]
             <> map (\(k, v) -> DetailPlain $ T.encodeUtf8Builder k <> ": " <> T.encodeUtf8Builder v) extraFields
-            <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- HashMap.toList bnds]])
+            <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
   _ <- updateStyle (const finalStyle)
   pure Formatted {..}
 
