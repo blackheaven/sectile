@@ -16,6 +16,7 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Word as Word
 import qualified DhallTypes as S
 import Numeric.Natural (Natural)
+import qualified Optics.Core as Optics
 
 -- | Convert a full bar configuration into a list of sectile segments.
 convertBar :: S.BarConfig -> [Sectile.Segment IO]
@@ -86,27 +87,7 @@ convertSegment = \case
 -- | Apply a style configuration to a segment.
 applyStyle :: S.StyleConfig -> Sectile.Segment IO -> Sectile.Segment IO
 applyStyle cfg seg =
-  let withFg = case cfg.foreground of
-        Nothing -> id
-        Just c -> Style.forceStyle (\s -> s {Colour.chunkStyleForeground = Just (convertColour c)})
-      withBg = case cfg.background of
-        Nothing -> id
-        Just c -> Style.forceStyle (\s -> s {Colour.chunkStyleBackground = Just (convertColour c)})
-      withBold = case cfg.bold of
-        Nothing -> id
-        Just True -> Style.forceStyle (\s -> s {Colour.chunkStyleConsoleIntensity = Just Colour.BoldIntensity})
-        Just False -> id
-      withItalic = case cfg.italic of
-        Nothing -> id
-        Just b -> Style.forceStyle (\s -> s {Colour.chunkStyleItalic = Just b})
-      withTheme = case (cfg.theme, cfg.themeForeground, cfg.themeBackground) of
-        (Just themeName, Just fgName, Just bgName) ->
-          let t = resolveTheme themeName
-              fg = resolveThemeColour t fgName
-              bg = resolveThemeColour t bgName
-           in Style.forceStyle (Themes.themeStyle fg bg)
-        _ -> id
-      parsePercent t =
+  let parsePercent t =
         case T.splitOn "%" t of
           [] -> Nothing
           [_] -> Nothing
@@ -126,19 +107,38 @@ applyStyle cfg seg =
         S.ParseText p -> Style.parseTextGradient (getParser p)
         S.Scale key -> Style.scaleGradient key
         S.Ratio k1 k2 -> Style.ratioGradient k1 k2
-      withGradFg = case cfg.gradientFg of
+
+      applyColorConfig optic cfgVal = case cfgVal of
         Nothing -> id
-        Just (S.GradientConfig f t src) ->
-          let S.Colour r1 g1 b1 = f
-              S.Colour r2 g2 b2 = t
-           in Style.gradientFg (fromIntegral r1, fromIntegral g1, fromIntegral b1) (fromIntegral r2, fromIntegral g2, fromIntegral b2) (getGradientSource src)
-      withGradBg = case cfg.gradientBg of
+        Just (S.Colour c) -> Style.forceStyle (Optics.set optic (Just (convertColour c)))
+        Just (S.Gradient (S.GradientConfig f t src)) ->
+          let S.ColourRecord r1 g1 b1 = f
+              S.ColourRecord r2 g2 b2 = t
+           in Style.gradient (\col -> Optics.set optic (Just col)) (fromIntegral r1, fromIntegral g1, fromIntegral b1) (fromIntegral r2, fromIntegral g2, fromIntegral b2) (getGradientSource src)
+
+      withFg = applyColorConfig Style.styleForeground cfg.foreground
+      withBg = applyColorConfig Style.styleBackground cfg.background
+
+      applyOptic optic converter val = case val of
         Nothing -> id
-        Just (S.GradientConfig f t src) ->
-          let S.Colour r1 g1 b1 = f
-              S.Colour r2 g2 b2 = t
-           in Style.gradientBg (fromIntegral r1, fromIntegral g1, fromIntegral b1) (fromIntegral r2, fromIntegral g2, fromIntegral b2) (getGradientSource src)
-   in withGradBg $ withGradFg $ withItalic $ withBold $ withBg $ withFg $ withTheme seg
+        Just v -> Style.forceStyle (Optics.set optic (Just (converter v)))
+
+      withBold = case cfg.bold of
+        Nothing -> id
+        Just True -> Style.forceStyle (Optics.set Style.styleConsoleIntensity (Just Colour.BoldIntensity))
+        Just False -> id
+
+      withItalic = applyOptic Style.styleItalic id cfg.italic
+      withStrikethrough = applyOptic Style.styleStrikethrough id cfg.strikethrough
+      withSwap = applyOptic Style.styleSwapForegroundBackground id cfg.swapForegroundBackground
+      withConcealed = applyOptic Style.styleConcealed id cfg.concealed
+      withOverlined = applyOptic Style.styleOverlined id cfg.overlined
+      withConsoleIntensity = applyOptic Style.styleConsoleIntensity convertConsoleIntensity cfg.consoleIntensity
+      withUnderlining = applyOptic Style.styleUnderlining convertUnderlining cfg.underlining
+      withBlinking = applyOptic Style.styleBlinking convertBlinking cfg.blinking
+      withHyperlink = applyOptic Style.styleHyperlink id cfg.hyperlink
+
+   in withHyperlink $ withBlinking $ withUnderlining $ withConsoleIntensity $ withOverlined $ withConcealed $ withSwap $ withStrikethrough $ withItalic $ withBold $ withBg $ withFg seg
 
 -- | Apply a display transformation to a segment.
 applyDisplay :: S.DisplayConfig -> Sectile.Segment IO -> Sectile.Segment IO
@@ -160,6 +160,21 @@ convertColour c = Colour.Colour24Bit (toW8 c.r) (toW8 c.g) (toW8 c.b)
   where
     toW8 :: Natural -> Word.Word8
     toW8 = fromIntegral . min 255
+
+convertConsoleIntensity :: S.ConsoleIntensity -> Colour.ConsoleIntensity
+convertConsoleIntensity S.BoldIntensity = Colour.BoldIntensity
+convertConsoleIntensity S.FaintIntensity = Colour.FaintIntensity
+convertConsoleIntensity S.NormalIntensity = Colour.NormalIntensity
+
+convertUnderlining :: S.Underlining -> Colour.Underlining
+convertUnderlining S.SingleUnderline = Colour.SingleUnderline
+convertUnderlining S.DoubleUnderline = Colour.DoubleUnderline
+convertUnderlining S.NoUnderline = Colour.NoUnderline
+
+convertBlinking :: S.Blinking -> Colour.Blinking
+convertBlinking S.SlowBlinking = Colour.SlowBlinking
+convertBlinking S.RapidBlinking = Colour.RapidBlinking
+convertBlinking S.NoBlinking = Colour.NoBlinking
 
 -- | Resolve a theme name to a theme value.
 resolveTheme :: S.ThemeName -> Themes.Theme

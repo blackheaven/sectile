@@ -11,8 +11,7 @@ module Data.Sectile.Style
     -- * Combinators
     warnIf,
     GradientSource(..), parseTextGradient, scaleGradient, ratioGradient,
-    gradientFg,
-    gradientBg,
+    gradient,
 
     -- * Style optics
     styleItalic,
@@ -161,35 +160,8 @@ ratioGradient k1 k2 = GradientSource $ \bnds _ ->
     (Just (Aeson.Number n1), Just (Aeson.Number n2)) | n2 /= 0 -> Just (realToFrac (n1 / n2))
     _ -> Nothing
 
--- | Apply a background color gradient based on a parsed value.
-gradientBg ::
-  (Functor m) =>
-  (Word8, Word8, Word8) ->
-  (Word8, Word8, Word8) ->
-  GradientSource ->
-  Segment m ->
-  Segment m
-gradientBg =
-  gradientWith $ \col cs ->
-    cs
-      { Colour.chunkStyleBackground = Just col
-      }
-
--- | Apply a foreground color gradient based on a parsed value.
-gradientFg ::
-  (Functor m) =>
-  (Word8, Word8, Word8) ->
-  (Word8, Word8, Word8) ->
-  GradientSource ->
-  Segment m ->
-  Segment m
-gradientFg =
-  gradientWith $ \col cs ->
-    cs
-      { Colour.chunkStyleForeground = Just col
-      }
-
-gradientWith ::
+-- | Apply a color gradient based on a parsed value.
+gradient ::
   (Functor m) =>
   (Colour.Colour -> Colour.ChunkStyle -> Colour.ChunkStyle) ->
   (Word8, Word8, Word8) ->
@@ -197,7 +169,7 @@ gradientWith ::
   GradientSource ->
   Segment m ->
   Segment m
-gradientWith applyColor (r1, g1, b1) (r2, g2, b2) source (Segment s) =
+gradient applyColor (r1, g1, b1) (r2, g2, b2) source (Segment s) =
   Segment $ fmap transform s
   where
     transform action = do

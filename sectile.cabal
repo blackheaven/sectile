@@ -179,5 +179,6 @@ executable sectile
     , optparse-applicative
     , text
     , async
+    , optics-core
 
   default-language: Haskell2010

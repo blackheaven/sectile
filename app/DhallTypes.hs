@@ -12,6 +12,10 @@ module DhallTypes
 
     -- * Style configuration
     Colour (..),
+    ColourConfig (..),
+    ConsoleIntensity (..),
+    Underlining (..),
+    Blinking (..),
     StyleConfig (..),
 
     -- * Display configuration
@@ -29,7 +33,7 @@ import Data.String (IsString)
 import Dhall
 
 -- | A colour specified as 24-bit RGB components.
-data Colour = Colour
+data Colour = ColourRecord
   { r :: Natural,
     g :: Natural,
     b :: Natural
@@ -56,17 +60,33 @@ data GradientConfig = GradientConfig
 
 deriving anyclass instance FromDhall GradientConfig
 
+data ConsoleIntensity = BoldIntensity | FaintIntensity | NormalIntensity deriving stock (Eq, Show, Generic)
+deriving anyclass instance FromDhall ConsoleIntensity
+
+data Underlining = SingleUnderline | DoubleUnderline | NoUnderline deriving stock (Eq, Show, Generic)
+deriving anyclass instance FromDhall Underlining
+
+data Blinking = SlowBlinking | RapidBlinking | NoBlinking deriving stock (Eq, Show, Generic)
+deriving anyclass instance FromDhall Blinking
+
+data ColourConfig = Colour Colour | Gradient GradientConfig
+  deriving stock (Eq, Show, Generic)
+deriving anyclass instance FromDhall ColourConfig
+
 -- | Style configuration for a segment.
 data StyleConfig = StyleConfig
-  { foreground :: Maybe Colour,
-    background :: Maybe Colour,
+  { foreground :: Maybe ColourConfig,
+    background :: Maybe ColourConfig,
     bold :: Maybe Bool,
     italic :: Maybe Bool,
-    theme :: Maybe ThemeName,
-    themeForeground :: Maybe Text,
-    themeBackground :: Maybe Text,
-    gradientFg :: Maybe GradientConfig,
-    gradientBg :: Maybe GradientConfig
+    strikethrough :: Maybe Bool,
+    swapForegroundBackground :: Maybe Bool,
+    concealed :: Maybe Bool,
+    overlined :: Maybe Bool,
+    consoleIntensity :: Maybe ConsoleIntensity,
+    underlining :: Maybe Underlining,
+    blinking :: Maybe Blinking,
+    hyperlink :: Maybe Text
   }
   deriving stock (Eq, Show, Generic)
 
