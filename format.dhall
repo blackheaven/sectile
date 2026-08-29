@@ -11,28 +11,43 @@ let GradientConfig =
       , default = {=}
       }
 
+let ColourConfig =
+      < Colour : Colour.Type
+      | Gradient : GradientConfig.Type
+      >
+
+let ConsoleIntensity = < BoldIntensity | FaintIntensity | NormalIntensity >
+let Underlining = < SingleUnderline | DoubleUnderline | NoUnderline >
+let Blinking = < SlowBlinking | RapidBlinking | NoBlinking >
+
 let StyleConfig =
       { Type =
-          { foreground : Optional Colour.Type
-          , background : Optional Colour.Type
+          { foreground : Optional ColourConfig
+          , background : Optional ColourConfig
           , bold : Optional Bool
           , italic : Optional Bool
-          , theme : Optional Text
-          , themeForeground : Optional Text
-          , themeBackground : Optional Text
-          , gradientFg : Optional GradientConfig.Type
-          , gradientBg : Optional GradientConfig.Type
+          , strikethrough : Optional Bool
+          , swapForegroundBackground : Optional Bool
+          , concealed : Optional Bool
+          , overlined : Optional Bool
+          , consoleIntensity : Optional ConsoleIntensity
+          , underlining : Optional Underlining
+          , blinking : Optional Blinking
+          , hyperlink : Optional Text
           }
       , default =
-        { foreground = None Colour.Type
-        , background = None Colour.Type
+        { foreground = None ColourConfig
+        , background = None ColourConfig
         , bold = None Bool
         , italic = None Bool
-        , theme = None Text
-        , themeForeground = None Text
-        , themeBackground = None Text
-        , gradientFg = None GradientConfig.Type
-        , gradientBg = None GradientConfig.Type
+        , strikethrough = None Bool
+        , swapForegroundBackground = None Bool
+        , concealed = None Bool
+        , overlined = None Bool
+        , consoleIntensity = None ConsoleIntensity
+        , underlining = None Underlining
+        , blinking = None Blinking
+        , hyperlink = None Text
         }
       }
 
@@ -98,6 +113,10 @@ let BarConfig =
       }
 
 in  { Colour
+    , ColourConfig
+    , ConsoleIntensity
+    , Underlining
+    , Blinking
     , GradientSourceConfig
     , GradientConfig
     , StyleConfig
