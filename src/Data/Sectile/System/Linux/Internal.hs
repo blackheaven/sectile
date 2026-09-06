@@ -1,13 +1,30 @@
-module Data.Sectile.System.Linux.Internal (errMsg, mkFormatted, tryReadFile, tryWriteFile, formatKiB, showFFloat1, readInt, readDouble) where
+-- |
+-- Module        : Data.Sectile.System.Linux.Internal
+-- Copyright     : Gautier DI FOLCO
+-- License       : ISC
+--
+-- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
+-- Stability     : Stable
+-- Portability   : Portable
+module Data.Sectile.System.Linux.Internal
+  ( errMsg,
+    mkFormatted,
+    tryReadFile,
+    tryWriteFile,
+    formatKiB,
+    showFFloat1,
+    readInt,
+    readDouble,
+  )
+where
 
 import qualified Control.Exception as Exception
 import Control.Monad.State (State)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Builder as B
-import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.List as List
-import Data.Maybe (mapMaybe)
+import Data.Maybe (fromMaybe)
 import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
 import qualified Data.Text as T
@@ -15,11 +32,7 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
 import qualified Data.Text.Read as T
-import qualified Data.Time.Clock.POSIX as POSIX
 import Numeric (showFFloat)
-import qualified System.Directory as Dir
-import qualified System.Exit as Exit
-import qualified System.Process as Process
 
 -- Internal helpers
 
@@ -33,13 +46,13 @@ mkFormatted name typeName txt extraFields = do
   currentSt <- currentStyle
   bnds <- currentBindings
   let (finalStyle, rendered) = Colour.parseAnsiChunks currentSt txt
-      explain f =
+      explain renderStyle renderChunks =
         DetailList $
           [ DetailPlain $ "Name: " <> name,
             DetailPlain $ "Type: " <> T.encodeUtf8Builder typeName,
             DetailPlain $ "Value: " <> T.encodeUtf8Builder txt,
-            DetailPlain $ "Style: " <> f [Colour.Chunk (T.pack $ show currentSt) currentSt] <> " -> " <> f [Colour.Chunk (T.pack $ show finalStyle) finalStyle],
-            DetailPlain $ "Rendered: " <> f rendered
+            DetailPlain $ "Style: " <> fromMaybe "<none>" (renderStyle currentSt) <> " -> " <> fromMaybe "<none>" (renderStyle finalStyle),
+            DetailPlain $ "Rendered: " <> renderChunks rendered
           ]
             <> map (\(k, v) -> DetailPlain $ T.encodeUtf8Builder k <> ": " <> T.encodeUtf8Builder v) extraFields
             <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])

@@ -1,10 +1,19 @@
+-- |
+-- Module        : Main
+-- Copyright     : Gautier DI FOLCO
+-- License       : ISC
+--
+-- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
+-- Stability     : Stable
+-- Portability   : Portable
+--
 module Main (main) where
 
 import Control.Concurrent.Async (mapConcurrently)
 import Convert (convertBar)
 import qualified Data.ByteString.Builder as B
 import qualified Data.Either.Validation as V
-import Data.Sectile (explainSegment, renderSegment, row, Scoping(Isolating))
+import Data.Sectile (explainSegment, renderSegment, row, ScopingBindings(Isolating))
 import qualified Data.Sectile.Tmux as Colour
 import qualified Data.Text.IO as Text.IO
 import qualified Dhall

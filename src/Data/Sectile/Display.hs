@@ -1,3 +1,11 @@
+-- |
+-- Module        : Data.Sectile.Display
+-- Copyright     : Gautier DI FOLCO
+-- License       : ISC
+--
+-- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
+-- Stability     : Stable
+-- Portability   : Portable
 module Data.Sectile.Display
   ( -- * Truncation
     takeStart,
@@ -212,7 +220,8 @@ marquee width tickLenSeg (Segment s) = Segment $ do
     pure
       formatted
         { rendered = [Colour.Chunk shifted Colour.noStyle],
-          explain = \renderer -> formatted.explain $ renderer . const [Colour.Chunk shifted Colour.noStyle]
+          explain = \renderSyle renderChunks ->
+            formatted.explain renderSyle $ renderChunks . const [Colour.Chunk shifted Colour.noStyle]
         }
 
 -- Internal helpers
@@ -226,7 +235,8 @@ transformChunks f (Segment s) = Segment $ fmap transform s
       pure
         formatted
           { rendered = f formatted.rendered,
-            explain = \renderer -> formatted.explain $ renderer . f
+            explain = \renderSyle renderChunks ->
+              formatted.explain renderSyle $ renderChunks . f
           }
 
 -- | Total width of a list of chunks.

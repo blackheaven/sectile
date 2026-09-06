@@ -1,3 +1,11 @@
+-- |
+-- Module        : Data.Sectile.Style
+-- Copyright     : Gautier DI FOLCO
+-- License       : ISC
+--
+-- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
+-- Stability     : Stable
+-- Portability   : Portable
 module Data.Sectile.Style
   ( -- * Style combinators
     between,
@@ -10,7 +18,10 @@ module Data.Sectile.Style
 
     -- * Combinators
     warnIf,
-    GradientSource(..), parseTextGradient, scaleGradient, ratioGradient,
+    GradientSource (..),
+    parseTextGradient,
+    scaleGradient,
+    ratioGradient,
     gradient,
 
     -- * Style optics
@@ -85,10 +96,12 @@ forceStyle c (Segment s) = Segment $ fmap transform s
     transform action = do
       formatted <- action
       _ <- updateStyle c
-      pure formatted
-            { rendered = updateChunk <$> formatted.rendered,
-              explain = \renderer -> formatted.explain $ renderer . map updateChunk
-            }
+      pure
+        formatted
+          { rendered = updateChunk <$> formatted.rendered,
+            explain = \renderSyle renderChunks ->
+              formatted.explain renderSyle $ renderChunks . map updateChunk
+          }
     updateChunk chunk = chunk {Colour.chunkStyle = c $ Colour.chunkStyle chunk}
 
 -- | Reset a style to the default (no styling).
@@ -137,10 +150,12 @@ warnIf p warnStyle (Segment s) = Segment $ fmap transform s
           applyWarn c = c {Colour.chunkStyle = warnStyle}
       if p txt
         then
-          pure formatted
-            { rendered = map applyWarn formatted.rendered,
-              explain = \renderer -> formatted.explain $ renderer . map applyWarn
-            }
+          pure
+            formatted
+              { rendered = map applyWarn formatted.rendered,
+                explain = \renderSyle renderChunks ->
+                  formatted.explain renderSyle $ renderChunks . map applyWarn
+              }
         else pure formatted
 
 newtype GradientSource = GradientSource (HashMap.HashMap T.Text Aeson.Value -> T.Text -> Maybe Double)
@@ -191,10 +206,12 @@ gradient applyColor (r1, g1, b1) (r2, g2, b2) source (Segment s) =
                 chunk
                   { Colour.chunkStyle = applyGrad $ Colour.chunkStyle chunk
                   }
-          pure formatted
-                { rendered = map applyGradChunk formatted.rendered,
-                  explain = \renderer -> formatted.explain $ renderer . map applyGradChunk
-                }
+          pure
+            formatted
+              { rendered = map applyGradChunk formatted.rendered,
+                explain = \renderSyle renderChunks ->
+                  formatted.explain renderSyle $ renderChunks . map applyGradChunk
+              }
         Nothing -> pure formatted
 
 -- | Lens for the italic flag of a 'Colour.ChunkStyle'.

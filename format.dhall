@@ -7,17 +7,20 @@ let GradientSourceConfig =
       >
 
 let GradientConfig =
-      { Type = { from : Colour.Type, to : Colour.Type, source : GradientSourceConfig }
+      { Type =
+          { from : Colour.Type
+          , to : Colour.Type
+          , source : GradientSourceConfig
+          }
       , default = {=}
       }
 
-let ColourConfig =
-      < Colour : Colour.Type
-      | Gradient : GradientConfig.Type
-      >
+let ColourConfig = < Colour : Colour.Type | Gradient : GradientConfig.Type >
 
 let ConsoleIntensity = < BoldIntensity | FaintIntensity | NormalIntensity >
+
 let Underlining = < SingleUnderline | DoubleUnderline | NoUnderline >
+
 let Blinking = < SlowBlinking | RapidBlinking | NoBlinking >
 
 let StyleConfig =
@@ -51,6 +54,8 @@ let StyleConfig =
         }
       }
 
+let PropagatingStyle = < Reset | PropagateIncoming | PropagateInner >
+
 let DisplayConfig =
       { Type =
           < NoTransform
@@ -62,7 +67,8 @@ let DisplayConfig =
           | FixedSizeEnd : { width : Natural }
           | ProgressBar : { width : Natural }
           | Marquee : { width : Natural, tickSeconds : Natural }
-          | Reformat : { format : Text }
+          | Reformat :
+              { propagatingStyle : Optional PropagatingStyle, format : Text }
           >
       , default = {=}
       }
@@ -97,7 +103,11 @@ let SegmentNode =
           , display : Optional DisplayConfig.Type
           , row : Optional Natural
           }
-      , default = { style = None StyleConfig.Type, display = None DisplayConfig.Type, row = None Natural }
+      , default =
+        { style = None StyleConfig.Type
+        , display = None DisplayConfig.Type
+        , row = None Natural
+        }
       }
 
 let BarConfig =
@@ -106,10 +116,7 @@ let BarConfig =
           , separator : Optional Text
           , theme : Optional Text
           }
-      , default =
-        { separator = None Text
-        , theme = None Text
-        }
+      , default = { separator = None Text, theme = None Text }
       }
 
 in  { Colour
@@ -120,6 +127,7 @@ in  { Colour
     , GradientSourceConfig
     , GradientConfig
     , StyleConfig
+    , PropagatingStyle
     , DisplayConfig
     , Segment
     , SegmentNode

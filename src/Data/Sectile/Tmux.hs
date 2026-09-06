@@ -1,5 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- |
+-- Module        : Data.Sectile.Tmux
+-- Copyright     : Gautier DI FOLCO
+-- License       : ISC
+--
+-- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
+-- Stability     : Stable
+-- Portability   : Portable
 module Data.Sectile.Tmux
   ( Chunk (..),
     ChunkStyle (..),
@@ -13,6 +21,7 @@ module Data.Sectile.Tmux
     chunkWidth,
     TerminalCapabilities (..),
     renderChunksUtf8BSBuilder,
+    renderChunkStyleUtf8BSBuilder,
     parseAnsiChunks,
     renderColour,
   )
@@ -61,7 +70,20 @@ data ChunkStyle = ChunkStyle
   deriving (Show, Eq, Ord)
 
 noStyle :: ChunkStyle
-noStyle = ChunkStyle Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+noStyle =
+  ChunkStyle
+    { chunkStyleForeground = Nothing,
+      chunkStyleBackground = Nothing,
+      chunkStyleItalic = Nothing,
+      chunkStyleStrikethrough = Nothing,
+      chunkStyleSwapForegroundBackground = Nothing,
+      chunkStyleConcealed = Nothing,
+      chunkStyleOverlined = Nothing,
+      chunkStyleConsoleIntensity = Nothing,
+      chunkStyleUnderlining = Nothing,
+      chunkStyleBlinking = Nothing,
+      chunkStyleHyperlink = Nothing
+    }
 
 data Chunk = Chunk
   { chunkText :: Text,
@@ -86,56 +108,63 @@ renderChunksUtf8BSBuilder :: TerminalCapabilities -> [Chunk] -> B.Builder
 renderChunksUtf8BSBuilder cap chunks = foldMap renderChunk chunks
   where
     renderChunk c =
-      let style = chunkStyle c
-          txt = chunkText c
-          fg = case chunkStyleForeground style of
-            Nothing -> []
-            Just col -> ["fg=" <> renderColour col]
-          bg = case chunkStyleBackground style of
-            Nothing -> []
-            Just col -> ["bg=" <> renderColour col]
-          bold = case chunkStyleConsoleIntensity style of
-            Just BoldIntensity -> ["bold"]
-            Just FaintIntensity -> ["dim"]
-            _ -> []
-          italic = case chunkStyleItalic style of
-            Just True -> ["italics"]
-            _ -> []
-          underlined = case chunkStyleUnderlining style of
-            Just SingleUnderline -> ["underscore"]
-            Just DoubleUnderline -> ["underscore"]
-            _ -> []
-          blink = case chunkStyleBlinking style of
-            Just SlowBlinking -> ["blink"]
-            Just RapidBlinking -> ["blink"]
-            _ -> []
-          reverse' = case chunkStyleSwapForegroundBackground style of
-            Just True -> ["reverse"]
-            _ -> []
-          hidden = case chunkStyleConcealed style of
-            Just True -> ["hidden"]
-            _ -> []
-          strike = case chunkStyleStrikethrough style of
-            Just True -> ["strikethrough"]
-            _ -> []
-          attrs = mconcat [fg, bg, bold, italic, underlined, blink, reverse', hidden, strike]
-       in if cap == WithoutColours || null attrs
-            then B.byteString (T.encodeUtf8 txt)
-            else "#[" <> B.byteString (T.encodeUtf8 $ T.intercalate "," attrs) <> "]" <> B.byteString (T.encodeUtf8 txt) <> "#[default]"
+      let txt = chunkText c
+       in case renderChunkStyleUtf8BSBuilder cap (chunkStyle c) of
+            Nothing -> B.byteString (T.encodeUtf8 txt)
+            Just renderedStyle -> renderedStyle <> B.byteString (T.encodeUtf8 txt) <> "#[default]"
+
+renderChunkStyleUtf8BSBuilder :: TerminalCapabilities -> ChunkStyle -> Maybe B.Builder
+renderChunkStyleUtf8BSBuilder cap style =
+  if cap == WithoutColours || null attrs
+    then Nothing
+    else Just $ "#[" <> B.byteString (T.encodeUtf8 $ T.intercalate "," attrs) <> "]"
+  where
+    fg = case chunkStyleForeground style of
+      Nothing -> []
+      Just col -> ["fg=" <> renderColour col]
+    bg = case chunkStyleBackground style of
+      Nothing -> []
+      Just col -> ["bg=" <> renderColour col]
+    bold = case chunkStyleConsoleIntensity style of
+      Just BoldIntensity -> ["bold"]
+      Just FaintIntensity -> ["dim"]
+      _ -> []
+    italic = case chunkStyleItalic style of
+      Just True -> ["italics"]
+      _ -> []
+    underlined = case chunkStyleUnderlining style of
+      Just SingleUnderline -> ["underscore"]
+      Just DoubleUnderline -> ["underscore"]
+      _ -> []
+    blink = case chunkStyleBlinking style of
+      Just SlowBlinking -> ["blink"]
+      Just RapidBlinking -> ["blink"]
+      _ -> []
+    reverse' = case chunkStyleSwapForegroundBackground style of
+      Just True -> ["reverse"]
+      _ -> []
+    hidden = case chunkStyleConcealed style of
+      Just True -> ["hidden"]
+      _ -> []
+    strike = case chunkStyleStrikethrough style of
+      Just True -> ["strikethrough"]
+      _ -> []
+    attrs = mconcat [fg, bg, bold, italic, underlined, blink, reverse', hidden, strike]
 
 renderColour :: Colour -> Text
-renderColour (Colour8 _ Black) = "black"
-renderColour (Colour8 _ Red) = "red"
-renderColour (Colour8 _ Green) = "green"
-renderColour (Colour8 _ Yellow) = "yellow"
-renderColour (Colour8 _ Blue) = "blue"
-renderColour (Colour8 _ Magenta) = "magenta"
-renderColour (Colour8 _ Cyan) = "cyan"
-renderColour (Colour8 _ White) = "white"
-renderColour (Colour24Bit r g b) =
-  let hex = pad (showHex r "") <> pad (showHex g "") <> pad (showHex b "")
-   in "#" <> T.pack hex
-  where
-    pad s
-      | length s == 1 = "0" <> s
-      | otherwise = s
+renderColour =
+  \case
+    Colour8 _ Black -> "black"
+    Colour8 _ Red -> "red"
+    Colour8 _ Green -> "green"
+    Colour8 _ Yellow -> "yellow"
+    Colour8 _ Blue -> "blue"
+    Colour8 _ Magenta -> "magenta"
+    Colour8 _ Cyan -> "cyan"
+    Colour8 _ White -> "white"
+    Colour24Bit r g b ->
+      let hex = pad (showHex r "") <> pad (showHex g "") <> pad (showHex b "")
+          pad s
+            | length s == 1 = "0" <> s
+            | otherwise = s
+       in "#" <> T.pack hex

@@ -5,9 +5,18 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- |
+-- Module        : Data.Sectile.Segments
+-- Copyright     : Gautier DI FOLCO
+-- License       : ISC
+--
+-- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
+-- Stability     : Stable
+-- Portability   : Portable
 module Data.Sectile.Segments
   ( -- * Core builders
     string,
+    ScopingBindings (..),
     row,
     sh,
     time,
@@ -15,11 +24,13 @@ module Data.Sectile.Segments
     mpris,
     git,
     httpPoll,
+    PropagatingStyle (..),
     reformat,
   )
 where
 
 import qualified Control.Exception
+import Control.Monad (void)
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Key as Key
 import qualified Data.Aeson.KeyMap as KeyMap
@@ -27,7 +38,7 @@ import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.List as List
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
 import qualified Data.Text as T
@@ -47,37 +58,45 @@ string txt =
       currentSt <- currentStyle
       bnds <- currentBindings
       let (finalStyle, rendered) = Colour.parseAnsiChunks currentSt txt
-          explain f =
+          explain renderStyle renderChunks =
             DetailList $
               [ DetailPlain "Type: string",
                 DetailPlain $ "Value: " <> T.encodeUtf8Builder txt,
-                DetailPlain $ "Style: " <> f [Colour.Chunk (T.pack $ show currentSt) currentSt] <> " -> " <> f [Colour.Chunk (T.pack $ show finalStyle) finalStyle],
-                DetailPlain $ "Rendered: " <> f rendered
+                DetailPlain $ "Style: " <> fromMaybe "<none>" (renderStyle currentSt) <> " -> " <> fromMaybe "<none>" (renderStyle finalStyle),
+                DetailPlain $ "Rendered: " <> renderChunks rendered
               ]
                 <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
       _ <- updateStyle (const finalStyle)
       pure Formatted {..}
 
+-- | Scope or propagate bindings
+data ScopingBindings
+  = Isolating
+  | Propagating
+  deriving stock (Eq, Show)
+
 -- | Combine multiple segments into a named row.
-row :: (Monad m) => SegmentsRunner m -> Scoping -> Name -> [Segment m] -> Segment m
-row runSegments scoping name@(Name nameBuilder) ss =
+row :: (Monad m) => SegmentsRunner m -> ScopingBindings -> Name -> [Segment m] -> Segment m
+row runSegments scopingBindings name@(Name nameBuilder) ss =
   Segment $ do
-    states <- runSegments (.runSegment) ss
-    let wrap = case scoping of
-                 Isolating -> scopeBindings name
-                 Propagating -> id
-    pure $ wrap $ do
-      formatteds <- sequence states
+    formattedsM <- runSegments (.runSegment) ss
+    pure $ scopeBindings name $ do
+      initialBindings <- currentBindings
+      let rebindings =
+            case scopingBindings of
+              Propagating -> pure ()
+              Isolating -> void $ updateBindings $ const initialBindings
+      formatteds <- mapM (<* rebindings) formattedsM
       let rendered = concatMap (.rendered) formatteds
-          explain :: ([Colour.Chunk] -> B.Builder) -> Detail B.Builder
-          explain f =
+          explain :: (Colour.ChunkStyle -> Maybe B.Builder) -> ([Colour.Chunk] -> B.Builder) -> Detail B.Builder
+          explain renderStyle renderChunks =
             DetailList $
               [ DetailPlain $ "Name: " <> nameBuilder,
                 DetailPlain "Type: row",
-                DetailPlain $ "Rendered: " <> f rendered,
+                DetailPlain $ "Rendered: " <> renderChunks rendered,
                 DetailPlain "Details:"
               ]
-                <> map (DetailNested . flip (.explain) f) formatteds
+                <> map (\formatted -> DetailNested $ formatted.explain renderStyle renderChunks) formatteds
       pure Formatted {..}
 
 -- | Run a shell command and capture its stdout as a segment.
@@ -99,14 +118,14 @@ sh (Name name) cmd env =
       currentSt <- currentStyle
       bnds <- currentBindings
       let (finalStyle, rendered) = Colour.parseAnsiChunks currentSt stdout
-          explain f =
+          explain renderStyle renderChunks =
             DetailList $
               [ DetailPlain $ "Name: " <> name,
                 DetailPlain "Type: sh",
                 DetailPlain $ "Command: " <> T.encodeUtf8Builder (T.pack cmd),
                 DetailPlain $ "STDOUT: " <> T.encodeUtf8Builder stdout,
-                DetailPlain $ "Style: " <> f [Colour.Chunk (T.pack $ show currentSt) currentSt] <> " -> " <> f [Colour.Chunk (T.pack $ show finalStyle) finalStyle],
-                DetailPlain $ "Rendered: " <> f rendered
+                DetailPlain $ "Style: " <> fromMaybe "<none>" (renderStyle currentSt) <> " -> " <> fromMaybe "<none>" (renderStyle finalStyle),
+                DetailPlain $ "Rendered: " <> renderChunks rendered
               ]
                 <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
       _ <- updateStyle (const finalStyle)
@@ -128,14 +147,14 @@ time (Name name) format =
       _ <- appendBindings generatedBnds
       bnds <- currentBindings
       let (finalStyle, rendered) = Colour.parseAnsiChunks currentSt txt
-          explain f =
+          explain renderStyle renderChunks =
             DetailList $
               [ DetailPlain $ "Name: " <> name,
                 DetailPlain "Type: time",
                 DetailPlain $ "Format: " <> T.encodeUtf8Builder (T.pack format),
                 DetailPlain $ "Formatted: " <> T.encodeUtf8Builder txt,
-                DetailPlain $ "Style: " <> f [Colour.Chunk (T.pack $ show currentSt) currentSt] <> " -> " <> f [Colour.Chunk (T.pack $ show finalStyle) finalStyle],
-                DetailPlain $ "Rendered: " <> f rendered
+                DetailPlain $ "Style: " <> fromMaybe "<none>" (renderStyle currentSt) <> " -> " <> fromMaybe "<none>" (renderStyle finalStyle),
+                DetailPlain $ "Rendered: " <> renderChunks rendered
               ]
                 <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
       _ <- updateStyle (const finalStyle)
@@ -165,13 +184,21 @@ tryReadProcess proc = tryIO (Process.readCreateProcess proc "")
 tryIO :: IO a -> IO (Either IOError a)
 tryIO act = (Right <$> act) `Control.Exception.catch` (pure . Left)
 
+-- | Style propagation for reformatted segments
+data PropagatingStyle
+  = Reset
+  | PropagateIncoming
+  | PropagateInner
+  deriving stock (Eq, Show)
+
 -- | Reformat a segment's output using an EDE template.
-reformat :: (Functor m) => T.Text -> Segment m -> Segment m
-reformat format (Segment s) = Segment $ fmap transform s
+reformat :: (Functor m) => PropagatingStyle -> T.Text -> Segment m -> Segment m
+reformat propStyle format (Segment s) = Segment $ fmap transform s
   where
     transform action = do
       oldSt <- currentStyle
       formatted <- action
+      innerSt <- currentStyle
       bnds <- currentBindings
       let rawText = mconcat $ map Colour.chunkText formatted.rendered
           styleText =
@@ -179,16 +206,18 @@ reformat format (Segment s) = Segment $ fmap transform s
               LBS.toStrict $
                 B.toLazyByteString $
                   Colour.renderChunksUtf8BSBuilder Colour.With24BitColours formatted.rendered
+
+          effectiveIncomingSt = case propStyle of
+            Reset -> Colour.noStyle
+            PropagateIncoming -> oldSt
+            PropagateInner -> innerSt
+
           incomingStyleText =
             T.replace "#[default]" "" $
               T.decodeUtf8 $
                 LBS.toStrict $
                   B.toLazyByteString $
-                    Colour.renderChunksUtf8BSBuilder Colour.With24BitColours [Colour.Chunk "" oldSt]
-
-          innerSt = case formatted.rendered of
-            (c : _) -> Colour.chunkStyle c
-            [] -> Colour.noStyle
+                    Colour.renderChunksUtf8BSBuilder Colour.With24BitColours [Colour.Chunk "" effectiveIncomingSt]
 
           styleToObj :: T.Text -> Colour.ChunkStyle -> Aeson.Value
           styleToObj sText st =
@@ -230,18 +259,29 @@ reformat format (Segment s) = Segment $ fmap transform s
 
           mergedEnv = HashMap.union envObj bnds
 
+      let explain renderStyle renderChunks =
+            DetailList
+              [ DetailPlain "Type: reformat",
+                DetailPlain $ "Format: " <> T.encodeUtf8Builder format,
+                DetailPlain $ "PropagatingStyle: " <> B.stringUtf8 (show propStyle),
+                DetailPlain "Bindings:",
+                DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList mergedEnv)],
+                DetailPlain "Inner segment:",
+                DetailNested $ formatted.explain renderStyle renderChunks
+              ]
+
       case EDE.parse (T.encodeUtf8 format) of
         EDE.Failure err -> do
           let (_errStyle, errRendered) = Colour.parseAnsiChunks Colour.noStyle (T.pack $ show err)
-          pure (formatted {rendered = errRendered})
+          pure (formatted {rendered = errRendered, explain = explain})
         EDE.Success tmpl -> case EDE.render tmpl (nestify mergedEnv) of
           EDE.Failure err -> do
             let (_errStyle, errRendered) = Colour.parseAnsiChunks Colour.noStyle (T.pack $ show err)
-            pure (formatted {rendered = errRendered})
+            pure (formatted {rendered = errRendered, explain = explain})
           EDE.Success renderedText -> do
-            let (newStyle, newRendered) = Colour.parseAnsiChunks oldSt (TL.toStrict renderedText)
+            let (newStyle, newRendered) = Colour.parseAnsiChunks effectiveIncomingSt (TL.toStrict renderedText)
             _ <- updateStyle (const newStyle)
-            pure (formatted {rendered = newRendered})
+            pure (formatted {rendered = newRendered, explain = explain})
 
     nestify :: HashMap.HashMap T.Text Aeson.Value -> HashMap.HashMap T.Text Aeson.Value
     nestify flatMap = HashMap.fromList $ map (\(k, v) -> (Key.toText k, v)) $ KeyMap.toList $ List.foldl' insertPath KeyMap.empty (HashMap.toList flatMap)

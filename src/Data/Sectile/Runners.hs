@@ -1,3 +1,11 @@
+-- |
+-- Module        : Data.Sectile.Runners
+-- Copyright     : Gautier DI FOLCO
+-- License       : ISC
+--
+-- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
+-- Stability     : Stable
+-- Portability   : Portable
 module Data.Sectile.Runners
   ( -- * Runners
     renderSegment,
@@ -5,11 +13,11 @@ module Data.Sectile.Runners
   )
 where
 
+import Control.Monad.State (evalState)
 import qualified Data.ByteString.Builder as B
+import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
-import Control.Monad.State (evalState)
-import qualified Data.HashMap.Strict as HashMap
 
 -- | Render a segment to a 'B.Builder' using the given terminal capabilities.
 --
@@ -47,7 +55,7 @@ explainSegment :: (Functor m) => Colour.TerminalCapabilities -> Segment m -> m B
 explainSegment t s = withFormat . (`evalState` Env Colour.noStyle HashMap.empty) <$> s.runSegment
   where
     withFormat fmt =
-      go 0 $ fmt.explain $ Colour.renderChunksUtf8BSBuilder t
+      go 0 $ fmt.explain (Colour.renderChunkStyleUtf8BSBuilder t) (Colour.renderChunksUtf8BSBuilder t)
     go level =
       \case
         DetailPlain x -> mconcat (replicate (2 * level) " ") <> "└──" <> x

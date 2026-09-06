@@ -1,26 +1,23 @@
-module Data.Sectile.System.Linux.Load (load, parseLoadavg) where
+-- |
+-- Module        : Data.Sectile.System.Linux.Load
+-- Copyright     : Gautier DI FOLCO
+-- License       : ISC
+--
+-- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
+-- Stability     : Stable
+-- Portability   : Portable
+--
+module Data.Sectile.System.Linux.Load (load) where
 
-import qualified Control.Exception as Exception
-import Control.Monad.State (State)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HashMap
-import Data.Maybe (mapMaybe)
 import Data.Sectile.System.Linux.Internal
-import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.Encoding as TLE
-import qualified Data.Text.Read as T
-import qualified Data.Time.Clock.POSIX as POSIX
 import GHC.Conc (getNumProcessors)
-import Numeric (showFFloat)
-import qualified System.Directory as Dir
-import qualified System.Exit as Exit
-import qualified System.Process as Process
 
 -- | Display system load averages by reading @\/proc\/loadavg@.
 --

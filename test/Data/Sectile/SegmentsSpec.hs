@@ -88,7 +88,7 @@ spec = do
 
   describe "reformat" $ do
     it "reformats output using EDE template" $ do
-      output <- renderSegment Colour.WithoutColours (reformat "[{{ _inner.raw }}]" (string "hello"))
+      output <- renderSegment Colour.WithoutColours (reformat PropagateInner "[{{ _inner.raw }}]" (string "hello"))
       builderToText output `shouldBe` "[hello]"
 
     it "has access to bound variables" $ do
@@ -97,7 +97,7 @@ spec = do
             pure $ do
               _ <- appendBindings (HashMap.singleton "my_var" (Aeson.String "world"))
               inner
-      output <- renderSegment Colour.WithoutColours (reformat "{{ my_var }} - {{ _inner.raw }}" seg)
+      output <- renderSegment Colour.WithoutColours (reformat PropagateInner "{{ my_var }} - {{ _inner.raw }}" seg)
       builderToText output `shouldBe` "world - hello"
 
 builderToText :: B.Builder -> T.Text

@@ -1,3 +1,11 @@
+-- |
+-- Module        : Data.Sectile.Types
+-- Copyright     : Gautier DI FOLCO
+-- License       : ISC
+--
+-- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
+-- Stability     : Stable
+-- Portability   : Portable
 module Data.Sectile.Types
   ( -- * Main types
     Segment (..),
@@ -8,7 +16,6 @@ module Data.Sectile.Types
     -- * Segment builder types
     Name (..),
     Unit (..),
-    Scoping (..),
 
     -- * Runner type
     SegmentsRunner,
@@ -71,7 +78,7 @@ newtype Segment m = Segment
 -- > inspectRendered fmt = fmt.rendered
 data Formatted = Formatted
   { rendered :: [Colour.Chunk],
-    explain :: ([Colour.Chunk] -> B.Builder) -> Detail B.Builder
+    explain :: (Colour.ChunkStyle -> Maybe B.Builder) -> ([Colour.Chunk] -> B.Builder) -> Detail B.Builder
   }
 
 -- | Segment environment.
@@ -116,11 +123,7 @@ newtype Unit
   = Unit {unUnit :: Text}
   deriving newtype (IsString, Eq, Show)
 
--- | Scope or propagate bindings
-data Scoping
-  = Isolating
-  | Propagating
-  deriving stock (Eq, Show)
+
 
 -- | A strategy for running multiple segments.
 --

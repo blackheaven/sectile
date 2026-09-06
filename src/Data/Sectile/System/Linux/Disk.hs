@@ -1,23 +1,19 @@
-module Data.Sectile.System.Linux.Disk (disk, parseDiskUsage) where
+-- |
+-- Module        : Data.Sectile.System.Linux.Disk
+-- Copyright     : Gautier DI FOLCO
+-- License       : ISC
+--
+-- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
+-- Stability     : Stable
+-- Portability   : Portable
+--
+module Data.Sectile.System.Linux.Disk (disk) where
 
-import qualified Control.Exception as Exception
-import Control.Monad.State (State)
 import qualified Data.Aeson as Aeson
-import qualified Data.ByteString.Builder as B
-import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HashMap
-import Data.Maybe (mapMaybe)
 import Data.Sectile.System.Linux.Internal
-import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.Encoding as TLE
-import qualified Data.Text.Read as T
-import qualified Data.Time.Clock.POSIX as POSIX
-import Numeric (showFFloat)
-import qualified System.Directory as Dir
 import qualified System.Exit as Exit
 import qualified System.Process as Process
 
@@ -55,7 +51,7 @@ parseDiskUsage (Name nameB) content =
    in case lns of
         (_ : dataLine : _) ->
           case T.words dataLine of
-            (sizeT : usedT : availT : pcentT : _) ->
+            (sizeT : usedT : availT : _pcentT : _) ->
               case (readDouble sizeT, readDouble usedT, readDouble availT) of
                 (Just sizeKB, Just usedKB, Just availKB) ->
                   let size = sizeKB * 1024

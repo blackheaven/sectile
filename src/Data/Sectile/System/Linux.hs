@@ -1,3 +1,12 @@
+-- |
+-- Module        : Data.Sectile.System.Linux
+-- Copyright     : Gautier DI FOLCO
+-- License       : ISC
+--
+-- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
+-- Stability     : Stable
+-- Portability   : Portable
+--
 module Data.Sectile.System.Linux
   ( uptime,
     memory,

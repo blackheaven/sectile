@@ -2,7 +2,16 @@
 {-# LANGUAGE NoFieldSelectors #-}
 {-# OPTIONS_GHC -Wno-partial-fields #-}
 
--- | Dhall-compatible DTOs for sectile configuration.
+-- |
+-- Module        : DhallTypes
+-- Copyright     : Gautier DI FOLCO
+-- License       : ISC
+--
+-- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
+-- Stability     : Stable
+-- Portability   : Portable
+--
+-- Dhall-compatible DTOs for sectile configuration.
 -- These types mirror the sectile library types but derive 'FromDhall'
 -- for configuration file parsing.
 module DhallTypes
@@ -20,6 +29,7 @@ module DhallTypes
 
     -- * Display configuration
     DisplayConfig (..),
+    PropagatingStyle (..),
 
     -- * Theme configuration
     ThemeName (..),
@@ -97,6 +107,14 @@ newtype ThemeName = ThemeName {getThemeName :: Text}
   deriving stock (Generic)
   deriving newtype (Eq, Ord, Show, IsString, FromDhall)
 
+data PropagatingStyle
+  = Reset
+  | PropagateIncoming
+  | PropagateInner
+  deriving stock (Eq, Show, Generic)
+
+deriving anyclass instance FromDhall PropagatingStyle
+
 -- | Display transformation configuration.
 data DisplayConfig
   = NoTransform
@@ -108,7 +126,7 @@ data DisplayConfig
   | FixedSizeEnd {width :: Natural}
   | ProgressBar {width :: Natural}
   | Marquee {width :: Natural, tickSeconds :: Natural}
-  | Reformat {format :: Text}
+  | Reformat {propagatingStyle :: Maybe PropagatingStyle, format :: Text}
   deriving stock (Eq, Show, Generic)
 
 deriving anyclass instance FromDhall DisplayConfig
