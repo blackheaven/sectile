@@ -6,7 +6,6 @@
 -- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
 -- Stability     : Stable
 -- Portability   : Portable
---
 module Data.Sectile.System.Linux.Memory (memory) where
 
 import qualified Data.Aeson as Aeson

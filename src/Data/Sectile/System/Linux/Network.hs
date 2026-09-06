@@ -6,7 +6,6 @@
 -- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
 -- Stability     : Stable
 -- Portability   : Portable
---
 module Data.Sectile.System.Linux.Network
   ( networkStats,
     networkUp,
@@ -117,4 +116,5 @@ parseNetDevBytes iface direction content =
                 _ -> Nothing
         _ -> Nothing
 
+-- | Direction of network traffic: received (download) or transmitted (upload).
 data NetDirection = NetReceive | NetTransmit

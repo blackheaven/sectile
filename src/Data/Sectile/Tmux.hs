@@ -34,26 +34,37 @@ import qualified Data.Text.Encoding as T
 import Data.Word (Word8)
 import Numeric (showHex)
 
+-- | The eight named terminal colours.
 data TerminalColour = Black | Red | Green | Yellow | Blue | Magenta | Cyan | White
   deriving (Show, Eq, Ord)
 
+-- | Dull or bright variant of a 'TerminalColour'.
 data Brightness = Bright | Dull
   deriving (Show, Eq, Ord)
 
+-- | A colour: either an 8-colour ('Brightness' + 'TerminalColour') or a 24-bit RGB triple.
 data Colour
   = Colour8 Brightness TerminalColour
   | Colour24Bit Word8 Word8 Word8
   deriving (Show, Eq, Ord)
 
+-- | Text emphasis: bold, faint, or normal.
 data ConsoleIntensity = BoldIntensity | FaintIntensity | NormalIntensity
   deriving (Show, Eq, Ord)
 
+-- | Underlining style: single, double, or none.
 data Underlining = SingleUnderline | DoubleUnderline | NoUnderline
   deriving (Show, Eq, Ord)
 
+-- | Blinking style: slow, rapid, or none.
 data Blinking = SlowBlinking | RapidBlinking | NoBlinking
   deriving (Show, Eq, Ord)
 
+-- | Styling attributes for a chunk; every attribute is optional.
+--
+-- Fields cover foreground\/background colours, italic, strikethrough,
+-- reversed, concealed, overlined, console intensity, underlining,
+-- blinking, and hyperlink URL.
 data ChunkStyle = ChunkStyle
   { chunkStyleForeground :: Maybe Colour,
     chunkStyleBackground :: Maybe Colour,
@@ -69,6 +80,7 @@ data ChunkStyle = ChunkStyle
   }
   deriving (Show, Eq, Ord)
 
+-- | A 'ChunkStyle' with no styling applied.
 noStyle :: ChunkStyle
 noStyle =
   ChunkStyle
@@ -85,15 +97,17 @@ noStyle =
       chunkStyleHyperlink = Nothing
     }
 
+-- | A piece of rendered text and its style.
 data Chunk = Chunk
   { chunkText :: Text,
     chunkStyle :: ChunkStyle
   }
-  deriving (Show, Eq, Ord)
 
+-- | Length (in code points) of the chunk's text.
 chunkWidth :: Chunk -> Int
 chunkWidth = T.length . chunkText
 
+-- | Colour support of the target terminal.
 data TerminalCapabilities
   = WithoutColours
   | With8Colours
@@ -101,11 +115,14 @@ data TerminalCapabilities
   | With24BitColours
   deriving (Show, Eq, Ord)
 
+-- | Wrap text as a single chunk carrying the given base style;
+-- no ANSI sequence processing is performed.
 parseAnsiChunks :: ChunkStyle -> Text -> (ChunkStyle, [Chunk])
 parseAnsiChunks style txt = (style, [Chunk txt style])
 
+-- | Render chunks as a tmux style-prefixed UTF-8 'B.Builder'.
 renderChunksUtf8BSBuilder :: TerminalCapabilities -> [Chunk] -> B.Builder
-renderChunksUtf8BSBuilder cap chunks = foldMap renderChunk chunks
+renderChunksUtf8BSBuilder cap = foldMap renderChunk
   where
     renderChunk c =
       let txt = chunkText c
@@ -113,6 +130,8 @@ renderChunksUtf8BSBuilder cap chunks = foldMap renderChunk chunks
             Nothing -> B.byteString (T.encodeUtf8 txt)
             Just renderedStyle -> renderedStyle <> B.byteString (T.encodeUtf8 txt) <> "#[default]"
 
+-- | Render a style as a tmux style specification, or 'Nothing' when the
+-- terminal has no colour support or the style is empty.
 renderChunkStyleUtf8BSBuilder :: TerminalCapabilities -> ChunkStyle -> Maybe B.Builder
 renderChunkStyleUtf8BSBuilder cap style =
   if cap == WithoutColours || null attrs
@@ -151,6 +170,7 @@ renderChunkStyleUtf8BSBuilder cap style =
       _ -> []
     attrs = mconcat [fg, bg, bold, italic, underlined, blink, reverse', hidden, strike]
 
+-- | Render a 'Colour' as a tmux colour name or hex value.
 renderColour :: Colour -> Text
 renderColour =
   \case

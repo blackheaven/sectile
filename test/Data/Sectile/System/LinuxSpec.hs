@@ -26,7 +26,7 @@ spec = do
       let txt = builderToText output
       -- Should contain percentage and size units
       txt `shouldSatisfy` T.isInfixOf "%"
-      txt `shouldSatisfy` (\t -> any (flip T.isInfixOf t) ["EiB", "TiB", "GiB", "MiB", "KiB"])
+      txt `shouldSatisfy` (\t -> any (`T.isInfixOf` t) ["EiB", "TiB", "GiB", "MiB", "KiB"])
 
   describe "load" $ do
     it "renders load averages from /proc/loadavg" $ do

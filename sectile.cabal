@@ -120,17 +120,8 @@ test-suite spec
     , sectile
     , hedgehog
     , hspec
-    , mtl
-    , aeson
-    , unordered-containers
     , hspec-core
-    , mtl
-    , aeson
-    , unordered-containers
     , hspec-discover
-    , mtl
-    , aeson
-    , unordered-containers
     , hspec-hedgehog
     , mtl
     , aeson
@@ -138,7 +129,6 @@ test-suite spec
     , optics-core
     , text
     , time
-
     , pcre-light
   default-language: Haskell2010
 

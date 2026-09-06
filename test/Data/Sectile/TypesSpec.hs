@@ -5,7 +5,7 @@ module Data.Sectile.TypesSpec (spec) where
 import Control.Monad.State (evalState, execState)
 import qualified Data.Aeson as Aeson
 import qualified Data.HashMap.Strict as HashMap
-import Data.Sectile.Tmux (noStyle, ChunkStyle(..))
+import Data.Sectile.Tmux (ChunkStyle (..), noStyle)
 import Data.Sectile.Types
 import Test.Hspec
 
@@ -13,12 +13,12 @@ spec :: Spec
 spec = do
   describe "Env state helpers" $ do
     let emptyEnv = Env noStyle HashMap.empty
-    
+
     it "currentStyle gets style" $ do
       evalState currentStyle emptyEnv `shouldBe` noStyle
 
     it "updateStyle modifies and returns new style" $ do
-      let newStyle = noStyle { chunkStyleItalic = Just True }
+      let newStyle = noStyle {chunkStyleItalic = Just True}
       let res = evalState (updateStyle (const newStyle)) emptyEnv
       res `shouldBe` newStyle
 
@@ -42,30 +42,33 @@ spec = do
             _ <- appendBindings (HashMap.singleton "child" (Aeson.String "cv"))
             pure ("result" :: String)
       let finalEnv = execState (scopeBindings "test" action) initialEnv
-      bindings finalEnv `shouldBe` HashMap.fromList 
-        [ ("parent", Aeson.String "pv")
-        , ("test.child", Aeson.String "cv")
-        ]
+      bindings finalEnv
+        `shouldBe` HashMap.fromList
+          [ ("parent", Aeson.String "pv"),
+            ("test.child", Aeson.String "cv")
+          ]
 
   describe "Binding helpers" $ do
     it "unitBindings generates correctly for KB" $ do
       let bnds = unitBindings "B" "disk" 2048
-      bnds `shouldBe` HashMap.fromList
-        [ ("disk", Aeson.String "2.0KiB")
-        , ("disk.raw", Aeson.Number 2048)
-        , ("disk.value.full", Aeson.String "2.0")
-        , ("disk.value.round", Aeson.String "2")
-        , ("disk.unit.full", Aeson.String "KiB")
-        , ("disk.unit.base", Aeson.String "B")
-        , ("disk.unit.prefix", Aeson.String "Ki")
-        ]
+      bnds
+        `shouldBe` HashMap.fromList
+          [ ("disk", Aeson.String "2.0KiB"),
+            ("disk.raw", Aeson.Number 2048),
+            ("disk.value.full", Aeson.String "2.0"),
+            ("disk.value.round", Aeson.String "2"),
+            ("disk.unit.full", Aeson.String "KiB"),
+            ("disk.unit.base", Aeson.String "B"),
+            ("disk.unit.prefix", Aeson.String "Ki")
+          ]
 
     it "percentBindings generates correctly" $ do
       let bnds = percentBindings "usage" 0.426
-      bnds `shouldBe` HashMap.fromList
-        [ ("usage", Aeson.String "42.6%")
-        , ("usage.raw", Aeson.Number (realToFrac (0.426 :: Double)))
-        , ("usage.absolute", Aeson.String "0.43")
-        , ("usage.percent.full", Aeson.String "42.6")
-        , ("usage.percent.round", Aeson.String "43")
-        ]
+      bnds
+        `shouldBe` HashMap.fromList
+          [ ("usage", Aeson.String "42.6%"),
+            ("usage.raw", Aeson.Number (realToFrac (0.426 :: Double))),
+            ("usage.absolute", Aeson.String "0.43"),
+            ("usage.percent.full", Aeson.String "42.6"),
+            ("usage.percent.round", Aeson.String "43")
+          ]

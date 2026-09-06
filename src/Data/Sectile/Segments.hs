@@ -1,6 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -34,6 +33,7 @@ import Control.Monad (void)
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Key as Key
 import qualified Data.Aeson.KeyMap as KeyMap
+import Data.Bifunctor (first)
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HashMap
@@ -284,7 +284,7 @@ reformat propStyle format (Segment s) = Segment $ fmap transform s
             pure (formatted {rendered = newRendered, explain = explain})
 
     nestify :: HashMap.HashMap T.Text Aeson.Value -> HashMap.HashMap T.Text Aeson.Value
-    nestify flatMap = HashMap.fromList $ map (\(k, v) -> (Key.toText k, v)) $ KeyMap.toList $ List.foldl' insertPath KeyMap.empty (HashMap.toList flatMap)
+    nestify flatMap = HashMap.fromList $ map (first Key.toText) $ KeyMap.toList $ List.foldl' insertPath KeyMap.empty (HashMap.toList flatMap)
       where
         insertPath :: KeyMap.KeyMap Aeson.Value -> (T.Text, Aeson.Value) -> KeyMap.KeyMap Aeson.Value
         insertPath obj (key, val) = go obj (T.splitOn "." key) val

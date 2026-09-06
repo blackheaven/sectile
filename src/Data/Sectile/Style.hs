@@ -158,17 +158,22 @@ warnIf p warnStyle (Segment s) = Segment $ fmap transform s
               }
         else pure formatted
 
+-- | A source of gradient input: extracts a value from the segment
+-- bindings or the rendered text.
 newtype GradientSource = GradientSource (HashMap.HashMap T.Text Aeson.Value -> T.Text -> Maybe Double)
 
+-- | Build a 'GradientSource' by parsing the segment's rendered text.
 parseTextGradient :: (T.Text -> Maybe Double) -> GradientSource
 parseTextGradient f = GradientSource $ \_ txt -> f txt
 
+-- | Build a 'GradientSource' from a numeric binding stored under @key@.
 scaleGradient :: T.Text -> GradientSource
 scaleGradient key = GradientSource $ \bnds _ ->
   case HashMap.lookup key bnds of
     Just (Aeson.Number n) -> Just (realToFrac n)
     _ -> Nothing
 
+-- | Build a 'GradientSource' from the ratio of two numeric bindings.
 ratioGradient :: T.Text -> T.Text -> GradientSource
 ratioGradient k1 k2 = GradientSource $ \bnds _ ->
   case (HashMap.lookup k1 bnds, HashMap.lookup k2 bnds) of

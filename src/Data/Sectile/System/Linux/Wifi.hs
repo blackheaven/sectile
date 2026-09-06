@@ -6,7 +6,6 @@
 -- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
 -- Stability     : Stable
 -- Portability   : Portable
---
 module Data.Sectile.System.Linux.Wifi (wifi) where
 
 import Data.Sectile.System.Linux.Internal

@@ -3,8 +3,6 @@ module Data.Sectile.TmuxSpec (spec) where
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as BL
 import Data.Sectile.Tmux
-import qualified Data.Text.Encoding as T
-import Data.Word (Word8)
 import Test.Hspec
 
 spec :: Spec

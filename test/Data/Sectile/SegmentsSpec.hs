@@ -1,13 +1,13 @@
 module Data.Sectile.SegmentsSpec (spec) where
 
+import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.HashMap.Strict as HashMap
 import Data.Sectile
 import qualified Data.Sectile.Tmux as Colour
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import qualified Data.Aeson as Aeson
-import qualified Data.HashMap.Strict as HashMap
 import Test.Hspec
 
 spec :: Spec

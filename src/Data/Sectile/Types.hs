@@ -81,7 +81,8 @@ data Formatted = Formatted
     explain :: (Colour.ChunkStyle -> Maybe B.Builder) -> ([Colour.Chunk] -> B.Builder) -> Detail B.Builder
   }
 
--- | Segment environment.
+-- | Segment environment: carries the incoming 'Env.style' and the
+-- accumulated 'Env.bindings' across segments.
 data Env = Env
   { style :: Colour.ChunkStyle,
     bindings :: HashMap Text Aeson.Value
@@ -123,8 +124,6 @@ newtype Unit
   = Unit {unUnit :: Text}
   deriving newtype (IsString, Eq, Show)
 
-
-
 -- | A strategy for running multiple segments.
 --
 -- This type alias represents a function that runs a collection of segments,
@@ -143,25 +142,32 @@ type SegmentsRunner m =
   [Segment m] ->
   m [State Env Formatted]
 
+-- | The 'Colour.ChunkStyle' currently carried by the environment.
 currentStyle :: State Env Colour.ChunkStyle
 currentStyle = gets style
 
+-- | Apply a transformation to the environment style and return the result.
 updateStyle :: (Colour.ChunkStyle -> Colour.ChunkStyle) -> State Env Colour.ChunkStyle
 updateStyle f = do
   modify (\env -> env {style = f (style env)})
   gets style
 
+-- | The bindings currently carried by the environment.
 currentBindings :: State Env (HashMap Text Aeson.Value)
 currentBindings = gets bindings
 
+-- | Apply a transformation to the environment bindings and return the result.
 updateBindings :: (HashMap Text Aeson.Value -> HashMap Text Aeson.Value) -> State Env (HashMap Text Aeson.Value)
 updateBindings f = do
   modify (\env -> env {bindings = f (bindings env)})
   gets bindings
 
+-- | Add bindings; keys in the new map take precedence over existing ones.
 appendBindings :: HashMap Text Aeson.Value -> State Env (HashMap Text Aeson.Value)
 appendBindings newBindings = updateBindings (HashMap.union newBindings)
 
+-- | Run an action with bindings scoped under the given 'Name':
+-- child bindings get prefixed with the name.
 scopeBindings :: Name -> State Env a -> State Env a
 scopeBindings (Name nameBuilder) action = do
   let prefix = Text.Encoding.decodeUtf8 (LBS.toStrict (B.toLazyByteString nameBuilder)) <> "."
@@ -174,6 +180,8 @@ scopeBindings (Name nameBuilder) action = do
   modify (\env -> env {bindings = HashMap.union prefixedChildBindings oldBindings})
   pure result
 
+-- | Build bindings for a value with a base unit (e.g. @\"B\"@), scaled
+-- to the largest fitting binary magnitude (KiB, MiB, ...).
 unitBindings :: Unit -> Name -> Double -> HashMap Text Aeson.Value
 unitBindings (Unit base) (Name nameBuilder) val =
   HashMap.fromList
@@ -197,6 +205,7 @@ unitBindings (Unit base) (Name nameBuilder) val =
       | abs val >= 1024 = ("Ki", val / 1024)
       | otherwise = ("", val)
 
+-- | Build bindings for a value expressed as a percentage.
 percentBindings :: Name -> Double -> HashMap Text Aeson.Value
 percentBindings (Name nameBuilder) val =
   HashMap.fromList

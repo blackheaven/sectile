@@ -6,7 +6,6 @@
 -- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
 -- Stability     : Stable
 -- Portability   : Portable
---
 module Data.Sectile.System.Linux.Thermal (thermal) where
 
 import qualified Data.HashMap.Strict as HashMap

@@ -19,7 +19,6 @@ import qualified Data.Sectile as Sectile
 import qualified Data.Sectile.Display as Display
 import qualified Data.Sectile.Style as Style
 import qualified Data.Sectile.System.Linux as System
-import qualified Data.Sectile.Themes as Themes
 import qualified Data.Sectile.Tmux as Colour
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T

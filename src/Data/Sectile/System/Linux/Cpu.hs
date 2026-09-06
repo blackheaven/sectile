@@ -6,7 +6,6 @@
 -- Maintainer    : Gautier DI FOLCO <foss@difolco.dev>
 -- Stability     : Stable
 -- Portability   : Portable
---
 module Data.Sectile.System.Linux.Cpu (cpu) where
 
 import qualified Data.Aeson as Aeson

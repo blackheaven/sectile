@@ -35,7 +35,9 @@ module DhallTypes
     ThemeName (..),
 
     -- * Top-level configuration
-    BarConfig (..), GradientConfig(..), GradientSourceConfig(..),
+    BarConfig (..),
+    GradientConfig (..),
+    GradientSourceConfig (..),
   )
 where
 
@@ -54,13 +56,14 @@ deriving anyclass instance FromDhall Colour
 
 -- | Data for gradient configuration.
 data GradientSourceConfig
-  = ParseText { parser :: Text }
-  | Scale { key :: Text }
-  | Ratio { k1 :: Text, k2 :: Text }
+  = ParseText {parser :: Text}
+  | Scale {key :: Text}
+  | Ratio {k1 :: Text, k2 :: Text}
   deriving stock (Eq, Show, Generic)
 
 deriving anyclass instance FromDhall GradientSourceConfig
 
+-- | Gradient rendering configuration: two RGB endpoints and a value source.
 data GradientConfig = GradientConfig
   { from :: Colour,
     to :: Colour,
@@ -70,17 +73,25 @@ data GradientConfig = GradientConfig
 
 deriving anyclass instance FromDhall GradientConfig
 
+-- | Text emphasis: bold, faint, or normal.
 data ConsoleIntensity = BoldIntensity | FaintIntensity | NormalIntensity deriving stock (Eq, Show, Generic)
+
 deriving anyclass instance FromDhall ConsoleIntensity
 
+-- | Underlining style: single, double, or none.
 data Underlining = SingleUnderline | DoubleUnderline | NoUnderline deriving stock (Eq, Show, Generic)
+
 deriving anyclass instance FromDhall Underlining
 
+-- | Blinking style: slow, rapid, or none.
 data Blinking = SlowBlinking | RapidBlinking | NoBlinking deriving stock (Eq, Show, Generic)
+
 deriving anyclass instance FromDhall Blinking
 
+-- | A segment colour: either a fixed colour or a gradient.
 data ColourConfig = Colour Colour | Gradient GradientConfig
   deriving stock (Eq, Show, Generic)
+
 deriving anyclass instance FromDhall ColourConfig
 
 -- | Style configuration for a segment.
@@ -107,6 +118,8 @@ newtype ThemeName = ThemeName {getThemeName :: Text}
   deriving stock (Generic)
   deriving newtype (Eq, Ord, Show, IsString, FromDhall)
 
+-- | How style propagates between segments: reset to no style, keep the
+-- incoming style, or take the style the segment itself set.
 data PropagatingStyle
   = Reset
   | PropagateIncoming
