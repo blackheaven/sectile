@@ -26,6 +26,10 @@
             ede = jailbreakUnbreak hsuper.ede;
           };
         };
+
+        nixpkgsOverlay = _final: _prev: {
+          sectile = self.packages.${system}.sectile;
+        };
       in
       rec {
         packages.sectile =
@@ -37,6 +41,8 @@
           );
 
         defaultPackage = packages.sectile;
+
+        overlays = nixpkgsOverlay;
 
         devShell =
           let
