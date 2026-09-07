@@ -12,6 +12,7 @@ module Data.Sectile.Types
     Formatted (..),
     Env (..),
     Detail (..),
+    bindingsDetail,
 
     -- * Segment builder types
     Name (..),
@@ -36,11 +37,15 @@ where
 
 import Control.Monad.State (State, gets, modify)
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Key as Key
+import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Bifunctor (Bifunctor (first))
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as LBS
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.Foldable as Foldable
+import qualified Data.List as List
 import qualified Data.Sectile.Tmux as Colour
 import Data.String (IsString)
 import Data.Text (Text)
@@ -218,3 +223,31 @@ percentBindings (Name nameBuilder) val =
   where
     nameT = Text.Encoding.decodeUtf8 $ LBS.toStrict $ B.toLazyByteString nameBuilder
     full = T.pack $ showFFloat (Just 1) (val * 100) ""
+
+-- | Render bindings as a @"Bindings:"@ detail block: one
+-- @path = value@ line per leaf, flattening nested JSON objects into
+-- dot-separated paths (e.g. @_inner.style.raw@).
+bindingsDetail :: HashMap Text Aeson.Value -> [Detail B.Builder]
+bindingsDetail bnds
+  | HashMap.null bnds = []
+  | otherwise =
+      [ DetailPlain "Bindings:",
+        DetailNested $
+          DetailList
+            [DetailPlain (Text.Encoding.encodeUtf8Builder path <> " = " <> valueBuilder v) | (path, v) <- leaves]
+      ]
+  where
+    leaves = List.sortOn fst (concatMap (flattenValue "") (HashMap.toList bnds))
+    flattenValue prefix (k, v) = descend (joinKey prefix k) v
+    joinKey "" k = k
+    joinKey prefix k = prefix <> "." <> k
+    descend path (Aeson.Object obj)
+      | KeyMap.null obj = [(path, Aeson.Object obj)]
+      | otherwise = concatMap (\(k, v) -> descend (joinKey path (Key.toText k)) v) (KeyMap.toList obj)
+    descend path (Aeson.Array arr)
+      | Foldable.null arr = [(path, Aeson.Array arr)]
+      | otherwise =
+          concat [descend (joinKey path (T.pack (show i))) v | (i, v) <- zip [0 :: Int ..] (Foldable.toList arr)]
+    descend path v = [(path, v)]
+    valueBuilder (Aeson.String t) = Text.Encoding.encodeUtf8Builder t
+    valueBuilder v = B.lazyByteString (Aeson.encode v)

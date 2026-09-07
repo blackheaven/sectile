@@ -86,6 +86,12 @@ spec = do
       let txt = builderToText output
       txt `shouldSatisfy` T.isInfixOf "Type: string"
 
+    it "renders reformat bindings as dot paths, not nested JSON" $ do
+      output <- explainSegment Colour.WithoutColours (reformat PropagateInner "[{{ _inner.raw }}]" (string "hello"))
+      let txt = builderToText output
+      txt `shouldSatisfy` T.isInfixOf "_inner.raw = hello"
+      txt `shouldNotSatisfy` T.isInfixOf "{\"raw\""
+
   describe "reformat" $ do
     it "reformats output using EDE template" $ do
       output <- renderSegment Colour.WithoutColours (reformat PropagateInner "[{{ _inner.raw }}]" (string "hello"))

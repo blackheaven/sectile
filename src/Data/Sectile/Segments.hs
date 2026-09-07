@@ -65,7 +65,7 @@ string txt =
                 DetailPlain $ "Style: " <> fromMaybe "<none>" (renderStyle currentSt) <> " -> " <> fromMaybe "<none>" (renderStyle finalStyle),
                 DetailPlain $ "Rendered: " <> renderChunks rendered
               ]
-                <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
+                <> bindingsDetail bnds
       _ <- updateStyle (const finalStyle)
       pure Formatted {..}
 
@@ -127,7 +127,7 @@ sh (Name name) cmd env =
                 DetailPlain $ "Style: " <> fromMaybe "<none>" (renderStyle currentSt) <> " -> " <> fromMaybe "<none>" (renderStyle finalStyle),
                 DetailPlain $ "Rendered: " <> renderChunks rendered
               ]
-                <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
+                <> bindingsDetail bnds
       _ <- updateStyle (const finalStyle)
       pure Formatted {..}
 
@@ -156,7 +156,7 @@ time (Name name) format =
                 DetailPlain $ "Style: " <> fromMaybe "<none>" (renderStyle currentSt) <> " -> " <> fromMaybe "<none>" (renderStyle finalStyle),
                 DetailPlain $ "Rendered: " <> renderChunks rendered
               ]
-                <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
+                <> bindingsDetail bnds
       _ <- updateStyle (const finalStyle)
       pure Formatted {..}
 
@@ -260,15 +260,15 @@ reformat propStyle format (Segment s) = Segment $ fmap transform s
           mergedEnv = HashMap.union envObj bnds
 
       let explain renderStyle renderChunks =
-            DetailList
+            DetailList $
               [ DetailPlain "Type: reformat",
                 DetailPlain $ "Format: " <> T.encodeUtf8Builder format,
-                DetailPlain $ "PropagatingStyle: " <> B.stringUtf8 (show propStyle),
-                DetailPlain "Bindings:",
-                DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList mergedEnv)],
-                DetailPlain "Inner segment:",
-                DetailNested $ formatted.explain renderStyle renderChunks
+                DetailPlain $ "PropagatingStyle: " <> B.stringUtf8 (show propStyle)
               ]
+                <> bindingsDetail mergedEnv
+                <> [ DetailPlain "Inner segment:",
+                     DetailNested $ formatted.explain renderStyle renderChunks
+                   ]
 
       case EDE.parse (T.encodeUtf8 format) of
         EDE.Failure err -> do

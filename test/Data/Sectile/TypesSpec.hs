@@ -4,9 +4,13 @@ module Data.Sectile.TypesSpec (spec) where
 
 import Control.Monad.State (evalState, execState)
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Builder as B
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as HashMap
 import Data.Sectile.Tmux (ChunkStyle (..), noStyle)
 import Data.Sectile.Types
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Test.Hspec
 
 spec :: Spec
@@ -72,3 +76,31 @@ spec = do
             ("usage.percent.full", Aeson.String "42.6"),
             ("usage.percent.round", Aeson.String "43")
           ]
+
+  describe "bindingsDetail" $ do
+    it "renders nothing for empty bindings" $ do
+      renderDetail (bindingsDetail HashMap.empty) `shouldBe` []
+
+    it "flattens nested objects into sorted dot paths" $ do
+      let bnds =
+            HashMap.fromList
+              [ ("_inner", Aeson.toJSON (HashMap.fromList [("raw" :: T.Text, Aeson.String "hello"), ("style", Aeson.toJSON (HashMap.fromList [("raw" :: T.Text, Aeson.String "")]))])),
+                ("top", Aeson.String "v")
+              ]
+      renderDetail (bindingsDetail bnds)
+        `shouldBe` [ "Bindings:",
+                     "  _inner.raw = hello",
+                     "  _inner.style.raw = ",
+                     "  top = v"
+                   ]
+
+    it "renders JSON scalar bindings via Aeson encoding" $ do
+      let bnds = HashMap.singleton "clock.raw" (Aeson.Number 85)
+      renderDetail (bindingsDetail bnds) `shouldBe` ["Bindings:", "  clock.raw = 85"]
+
+renderDetail :: [Detail B.Builder] -> [T.Text]
+renderDetail = concatMap (go 0)
+  where
+    go lvl (DetailPlain b) = [T.replicate (2 * lvl) " " <> T.decodeUtf8 (BSL.toStrict (B.toLazyByteString b))]
+    go lvl (DetailNested d) = go (lvl + 1) d
+    go lvl (DetailList ds) = concatMap (go lvl) ds

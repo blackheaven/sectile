@@ -20,10 +20,7 @@ where
 
 import qualified Control.Exception as Exception
 import Control.Monad.State (State)
-import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Builder as B
-import qualified Data.HashMap.Strict as HashMap
-import qualified Data.List as List
 import Data.Maybe (fromMaybe)
 import qualified Data.Sectile.Tmux as Colour
 import Data.Sectile.Types
@@ -55,7 +52,7 @@ mkFormatted name typeName txt extraFields = do
             DetailPlain $ "Rendered: " <> renderChunks rendered
           ]
             <> map (\(k, v) -> DetailPlain $ T.encodeUtf8Builder k <> ": " <> T.encodeUtf8Builder v) extraFields
-            <> (if HashMap.null bnds then [] else [DetailPlain "Bindings:", DetailNested $ DetailList [DetailPlain (T.encodeUtf8Builder k <> " = " <> B.lazyByteString (Aeson.encode v)) | (k, v) <- List.sortOn fst (HashMap.toList bnds)]])
+            <> bindingsDetail bnds
   _ <- updateStyle (const finalStyle)
   pure Formatted {..}
 
