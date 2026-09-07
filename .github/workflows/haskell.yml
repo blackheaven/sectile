@@ -61,7 +61,7 @@ jobs:
         run: cabal v2-build all --enable-tests --enable-benchmarks
 
       - name: Run test
-        run: cabal v2-test all
+        run: cabal v2-test all --enable-tests --enable-benchmarks
 
       - uses: actions/cache/save@v4
         if: always()
