@@ -55,6 +55,7 @@ jobs:
         run: |
           cabal update
           cabal v2-build all --enable-tests --enable-benchmarks --only-dependencies
+          cabal install hspec-discover --overwrite-policy=never
 
       - name: Build
         run: cabal v2-build all --enable-tests --enable-benchmarks
