@@ -48,6 +48,9 @@ jobs:
             ~/.cabal/store
             dist-newstyle
 
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libpcre3-dev
+
       - name: Build dependencies
         run: |
           cabal update
