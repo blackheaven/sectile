@@ -166,7 +166,7 @@ executable sectile
     , bytestring
     , dhall == 1.*
     , either == 5.*
-    , optparse-applicative
+    , optparse-applicative >= 0.18.1.0 && <0.20
     , text
     , async
     , optics-core
